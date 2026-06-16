@@ -1,0 +1,5 @@
+__pycache__/
+*.pyc
+*.log
+incident_graph_queries.txt
+.env
