@@ -6,7 +6,7 @@ Dự án nghiên cứu này kết hợp giám sát ở mức OS Kernel (Sysmon),
 
 ---
 
-## 🌟 Kiến trúc 8 Lớp (8-Phases Architecture)
+## Kiến trúc 8 Lớp (8-Phases Architecture)
 
 1. **AI Telemetry Layer**: Hook và thu thập dữ liệu hành vi của AI Agent.
 2. **Sysmon OS Collector**: Đọc luồng sự kiện bảo mật trực tiếp từ Kernel của Windows (Event ID 1).
@@ -39,7 +39,7 @@ Dùng để vẽ đồ thị mạng nhện điều tra sự cố.
 
 ---
 
-## 🚀 Hướng dẫn Cài đặt & Triển khai
+## Hướng dẫn Cài đặt & Triển khai
 
 **Bước 1: Clone Repository & Cài đặt thư viện**
 Mở Terminal/PowerShell và chạy lệnh:
@@ -64,7 +64,7 @@ python main.py
 
 ---
 
-## 🛡️ Hướng dẫn Demo Tấn công & Phòng thủ
+## Hướng dẫn Demo Tấn công & Phòng thủ
 
 1. Sau khi hệ thống hiện dòng chữ `[AI Analyzer] ✅ NLP Pipeline tải thành công!`.
 2. Bấm phím **Enter** trên cửa sổ EDR để giả lập việc AI Agent vừa sinh ra một lệnh.
