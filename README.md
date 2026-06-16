@@ -19,7 +19,7 @@ Dự án nghiên cứu này kết hợp giám sát ở mức OS Kernel (Sysmon),
 
 ---
 
-## ⚙️ Yêu cầu Hệ thống (Prerequisites)
+## Yêu cầu Hệ thống (Prerequisites)
 
 Để hệ thống hoạt động đúng như một sản phẩm thương mại, máy chủ/Endpoint cần phải cài đặt các thành phần cốt lõi sau:
 
