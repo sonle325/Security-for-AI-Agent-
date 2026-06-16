@@ -66,7 +66,7 @@ python main.py
 
 ## Hướng dẫn Demo Tấn công & Phòng thủ
 
-1. Sau khi hệ thống hiện dòng chữ `[AI Analyzer] ✅ NLP Pipeline tải thành công!`.
+1. Sau khi hệ thống hiện dòng chữ `[AI Analyzer]  NLP Pipeline tải thành công!`.
 2. Bấm phím **Enter** trên cửa sổ EDR để giả lập việc AI Agent vừa sinh ra một lệnh.
 3. Trong vòng 5 giây, mở hộp thoại `Run` (`Windows + R`) hoặc một cửa sổ PowerShell khác, dán Payload độc hại sau vào và Enter:
    ```powershell
