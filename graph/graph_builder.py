@@ -1,6 +1,7 @@
 import queue
 import threading
-from neo4j import GraphDatabase
+import os
+from neo4j import GraphDatabase # type: ignore
 
 class Neo4jIncidentGraph:
     def __init__(self, action_queue: queue.Queue, uri="bolt://localhost:7687", user="neo4j", password="password"):
@@ -16,9 +17,9 @@ class Neo4jIncidentGraph:
         try:
             self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
             self.driver.verify_connectivity()
-            print("[Neo4j] ✅ Đã kết nối thành công tới Neo4j Database local.")
+            print("[Neo4j] [+] Đã kết nối thành công tới Neo4j Database local.")
         except Exception as e:
-            print(f"[Neo4j] ⚠️ Không thể kết nối Neo4j (Bạn đã bật Neo4j Desktop chưa?): {e}")
+            print(f"[Neo4j] [!] Không thể kết nối Neo4j (Bạn đã bật Neo4j Desktop chưa?): {e}")
 
     def _create_graph_nodes(self, tx, incident):
         ai_event = incident.get("ai_event", {})
@@ -55,12 +56,12 @@ class Neo4jIncidentGraph:
                     try:
                         with self.driver.session() as session:
                             session.execute_write(self._create_graph_nodes, incident)
-                            print(f"[Neo4j] 📊 Đã đẩy đồ thị Incident {incident.get('incident_id')} lên Neo4j!")
+                            print(f"[Neo4j] [*] Đã đẩy đồ thị Incident {incident.get('incident_id')} lên Neo4j!")
                     except Exception as e:
-                        print(f"[Neo4j] ❌ Lỗi khi Query graph: {e}")
+                        print(f"[Neo4j] [-] Lỗi khi Query graph: {e}")
                 else:
                     # Giả lập: Nếu không cài được Neo4j, hệ thống sẽ tự động xuất Cypher Query ra màn hình và file
-                    print(f"[Neo4j] ⚠️ (MOCK MODE) Mô phỏng đẩy dữ liệu lên Neo4j cho Incident {incident.get('incident_id')}:")
+                    print(f"[Neo4j] [!] (MOCK MODE) Mô phỏng đẩy dữ liệu lên Neo4j cho Incident {incident.get('incident_id')}:")
                     print(f"        -> MERGE (a:AIAgent) -[:TRIGGERED]-> (i:Incident) -[:EXECUTED]-> (p:Process)")
                     
                     with open("incident_graph_queries.txt", "a", encoding="utf-8") as f:

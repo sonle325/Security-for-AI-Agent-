@@ -18,13 +18,13 @@ class AISecurityAnalyzer:
         self.classifier = None
         
     def _init_model(self):
-        print("[AI Analyzer] ⏳ Đang tải Zero-Shot Model (DeBERTa) vào bộ nhớ...")
+        print("[AI Analyzer] [*] Đang tải Zero-Shot Model (DeBERTa) vào bộ nhớ...")
         try:
-            from transformers import pipeline
+            from transformers import pipeline # type: ignore
             self.classifier = pipeline("zero-shot-classification", model="cross-encoder/nli-deberta-v3-small")
-            print("[AI Analyzer] ✅ NLP Pipeline tải thành công! Sẵn sàng chinh chiến đồ thật 100%!")
+            print("[AI Analyzer] [+] NLP Pipeline tải thành công! Sẵn sàng chinh chiến đồ thật 100%!")
         except Exception as e:
-            print(f"[AI Analyzer] ⚠️ Lỗi tải model: {e}")
+            print(f"[AI Analyzer] [!] Lỗi tải model: {e}")
 
     def _process_queue(self):
         while self.running:
@@ -33,7 +33,7 @@ class AISecurityAnalyzer:
                 cmdline = incident.get("sysmon_event", {}).get("CommandLine", "")
                 
                 if cmdline and self.classifier:
-                    print(f"\n[AI Analyzer] 🧠 Đang dùng Machine Learning đánh giá {incident.get('incident_id')}...")
+                    print(f"\n[AI Analyzer] [*] Đang dùng Machine Learning đánh giá {incident.get('incident_id')}...")
                     start_t = time.time()
                     
                     candidate_labels = ["remote code execution", "data exfiltration", "system discovery", "benign task"]

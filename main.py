@@ -4,10 +4,10 @@ import threading
 from collector.sysmon_listener import SysmonListener
 from ai_telemetry.agent_logger import AITelemetrySimulator
 from correlation.correlation_engine import CorrelationEngine
-from detection.risk_engine import DetectionEngine
-from response.containment import ContainmentEngine
-from investigation.neo4j_builder import Neo4jIncidentGraph
-from ai_analyzer.nlp_pipeline import AISecurityAnalyzer
+from detector.rule_engine import DetectionEngine
+from detector.containment import ContainmentEngine
+from graph.graph_builder import Neo4jIncidentGraph
+from analyzer.nlp_classifier import AISecurityAnalyzer
 
 def main():
     print("=== AI Runtime Threat Detection & Response Platform ===")
@@ -56,18 +56,8 @@ def main():
     sysmon_listener.start()
     
     print("[*] EDR Engine is FULLY OPERATIONAL (8/8 Phases).")
-    print("[*] Phím tắt: Bấm [Enter] để giả lập AI Agent gọi PowerShell.")
+    print("[*] Chế độ BACKGROUND: Tự động đánh hơi và tiêu diệt mọi tiến trình độc hại!")
     print("[*] Bấm [Ctrl+C] để thoát.")
-    
-    def input_listener():
-        while True:
-            try:
-                input() # Wait for Enter key
-                ai_simulator.trigger_manual_event()
-            except:
-                break
-                
-    threading.Thread(target=input_listener, daemon=True).start()
     
     try:
         while True:

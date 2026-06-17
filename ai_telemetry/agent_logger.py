@@ -17,5 +17,5 @@ class AITelemetrySimulator:
             "tool": "powershell",
             "timestamp": now_utc
         }
-        print(f"\n[AITelemetry] 🤖 AI AGENT ACTION: Yêu cầu thực thi '{ai_event['tool']}' lúc {now_utc}")
+        print(f"\n[AITelemetry] [*] AI AGENT ACTION: Yêu cầu thực thi '{ai_event['tool']}' lúc {now_utc}")
         self.ai_event_queue.put(ai_event)

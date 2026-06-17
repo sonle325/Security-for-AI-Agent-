@@ -96,7 +96,7 @@ class CorrelationEngine:
                     incident_id = f"INC-{self.incident_counter:04d}"
                     self.incident_counter += 1
                     
-                    print(f"\n[CorrelationEngine] 🔗 BẮT QUẢ TANG MỐI LIÊN KẾT (CORRELATED)!")
+                    print(f"\n[CorrelationEngine] [+] BẮT QUẢ TANG MỐI LIÊN KẾT (CORRELATED)!")
                     print(f"   [+] Sinh ra Incident: {incident_id}")
                     print(f"   [+] Độ trễ (Time Diff): {time_diff:.3f} giây")
                     
@@ -110,6 +110,30 @@ class CorrelationEngine:
                     # Mark as correlated
                     ai_evt["_correlated"] = True
                     sys_evt["_correlated"] = True
+
+        # TỰ ĐỘNG CHẠY NGẦM (BACKGROUND MODE): Bắt luôn cả các lệnh PowerShell/CMD đáng ngờ mồ côi
+        for sys_evt in self.sysmon_window:
+            if sys_evt.get("_correlated") or sys_evt.get("EventID") != 1:
+                continue
+                
+            sys_image = sys_evt.get("Image", "").lower()
+            if "powershell" in sys_image or "cmd.exe" in sys_image:
+                incident_id = f"INC-{self.incident_counter:04d}"
+                self.incident_counter += 1
+                
+                print(f"\n[CorrelationEngine] [!] PHÁT HIỆN TIẾN TRÌNH CHẠY NGẦM ĐÁNG NGỜ!")
+                print(f"   [+] Sinh ra Incident: {incident_id}")
+                
+                # Tạo mock AI event
+                mock_ai_evt = {"agent": "Background Script/AI", "action": "terminal", "timestamp": sys_evt.get("TimestampUTC", "")}
+                
+                incident = {
+                    "incident_id": incident_id,
+                    "ai_event": mock_ai_evt,
+                    "sysmon_event": sys_evt
+                }
+                self.incident_queue.put(incident)
+                sys_evt["_correlated"] = True
                     
     def start(self):
         if self.running:
