@@ -40,6 +40,8 @@ def main():
     
     # Initialize components
     sysmon_listener = SysmonListener(sysmon_queue)
+    # ai_simulator: IPC Channel receiver - chi dung khi trigger thu cong trong Demo
+    # Trong thuc te, Cursor/Copilot se day JSON event vao day qua Named Pipe
     ai_simulator = AITelemetrySimulator(ai_event_queue)
     correlation_engine = CorrelationEngine(sysmon_queue, ai_event_queue, incident_queue)
     detection_engine = DetectionEngine(incident_queue, action_queue)

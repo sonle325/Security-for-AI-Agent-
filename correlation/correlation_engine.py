@@ -89,10 +89,10 @@ class CorrelationEngine:
                 sys_time = self._parse_utc_time(sys_evt.get("TimestampUTC", ""))
                 sys_image = sys_evt.get("Image", "").lower()
                 
-                # Rule: time_diff <= 10s AND tool matches image
+                # Rule: time_diff <= 2s AND tool matches image (theo thiet ke: Delta_t <= 2 giay)
                 time_diff = abs((sys_time - ai_time).total_seconds())
                 
-                if time_diff <= 10.0 and ai_tool in sys_image:
+                if time_diff <= 2.0 and ai_tool in sys_image:
                     incident_id = f"INC-{self.incident_counter:04d}"
                     self.incident_counter += 1
                     
