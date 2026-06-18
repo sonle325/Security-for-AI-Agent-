@@ -3,6 +3,7 @@ import threading
 import time
 import logging
 import os
+from analyzer.incident_summary import IncidentSummarizer
 
 # Tắt log nhiễu của transformers
 logging.getLogger("transformers").setLevel(logging.ERROR)
@@ -16,6 +17,7 @@ class AISecurityAnalyzer:
         self.running = False
         self.thread = None
         self.classifier = None
+        self.summarizer = IncidentSummarizer()  # Tao bao cao Incident sau khi NLP phan tich xong
         
     def _init_model(self):
         print("[AI Analyzer] [*] Đang tải Zero-Shot Model (DeBERTa) vào bộ nhớ...")
@@ -46,6 +48,8 @@ class AISecurityAnalyzer:
                     print(f"   [+] Threat Label: {top_label.upper()} (Confidence: {score*100:.1f}%)")
                     
                     incident["ai_threat_label"] = top_label
+                    # Sinh bao cao Incident Summary vao reports/
+                    self.summarizer.generate(incident)
                     
                 self.action_queue.task_done()
             except queue.Empty:

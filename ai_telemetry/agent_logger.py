@@ -2,6 +2,7 @@ import time
 import queue
 import datetime
 import threading
+from ai_telemetry.event_normalizer import EventNormalizer
 
 class AITelemetrySimulator:
     """
@@ -23,4 +24,9 @@ class AITelemetrySimulator:
             "timestamp": now_utc
         }
         print(f"\n[AITelemetry] [*] AI AGENT ACTION: Yêu cầu thực thi '{ai_event['tool']}' lúc {now_utc}")
-        self.ai_event_queue.put(ai_event)
+        # Chuan hoa su kien ve schema thong nhat truoc khi dua vao Correlation Engine
+        normalized = EventNormalizer.normalize(ai_event)
+        if normalized:
+            self.ai_event_queue.put(normalized)
+        else:
+            self.ai_event_queue.put(ai_event)  # fallback neu normalize that bai

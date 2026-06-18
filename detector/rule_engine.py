@@ -14,7 +14,7 @@ class DetectionEngine:
         os.makedirs("alert_queue", exist_ok=True)
         
         # Danh sách từ khóa đặc trưng của Prompt Injection / RCE Payload
-        self.dangerous_keywords = ["curl", "wget", "iex", "invoke-webrequest", "http", "payload", "nc.exe"]
+        self.dangerous_keywords = ["curl", "wget", "iex", "invoke-webrequest", "payload", "nc.exe"]
         
         # Danh sách trắng (Allowlist) để chống chém nhầm (False Positive)
         self.allowed_domains = ["github.com", "viettel.com.vn", "localhost", "127.0.0.1", "pypi.org", "npm"]
