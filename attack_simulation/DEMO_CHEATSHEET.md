@@ -92,3 +92,5 @@ cat alert_queue/INC-0001.json
 | Model AI có thể nhận diện sai không? | Có. Đó là lý do NLP chỉ nằm ở luồng Async, không tham gia quyết định chém. |
 | Bypass bằng lệnh mã hóa Base64? | Future Work: tích hợp Windows AMSI để giải mã trước khi lọc. |
 | Sao không dùng DeBERTa-base thay vì small? | Tối ưu tài nguyên Endpoint. DeBERTa-small đủ độ chính xác Zero-shot, latency thấp hơn. |
+| **Bảo mật kênh IPC (Chống Spoofing/Làm giả Event)?** | Truy xuất ngược PID gửi qua Named Pipe (`GetNamedPipeClientProcessId`) → Lấy Hash file thực thi so sánh với Whitelist (VD: Cursor.exe). |
+| **Log Sysmon bị trễ/Delay quá 2 giây (High CPU)?** | Giải pháp tối ưu: Bắt AI Agent đính kèm `Execution_Token_ID` vào Environment Variable khi chạy lệnh. EDR chỉ cần khớp mã Token (Chính xác 100%). |
