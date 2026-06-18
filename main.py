@@ -54,6 +54,7 @@ def main():
     detection_engine.start()
     correlation_engine.start()
     sysmon_listener.start()
+    ai_simulator.start()  # Bat dau phat sinh AI Telemetry Event tu dong
     
     print("[*] EDR Engine is FULLY OPERATIONAL (8/8 Phases).")
     print("[*] Chế độ BACKGROUND: Tự động đánh hơi và tiêu diệt mọi tiến trình độc hại!")
@@ -71,6 +72,7 @@ def main():
         containment_engine.stop()
         neo4j_graph.stop()
         nlp_analyzer.stop()
+        ai_simulator.stop()
         print("[*] Shutdown complete.")
 
 if __name__ == "__main__":

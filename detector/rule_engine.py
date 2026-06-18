@@ -40,11 +40,12 @@ class DetectionEngine:
         correlation_confidence = 0
         matched_rules = []
         
-        # 2.1 Rule Severity
-        for kw in self.dangerous_keywords:
-            if kw in cmdline:
-                rule_severity += 20
-                matched_rules.append(f"Keyword: {kw}")
+        # 2.1 Rule Severity (cap tối đa 20 điểm để tránh vượt ngưỡng oan do nhiều keyword)
+        matched_keywords = [kw for kw in self.dangerous_keywords if kw in cmdline]
+        if matched_keywords:
+            rule_severity = 20
+            for kw in matched_keywords:
+                matched_rules.append(f"Suspicious Keyword: {kw}")
                 
         # 2.2 Process Weight
         if "powershell" in image:

