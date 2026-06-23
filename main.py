@@ -3,6 +3,7 @@ import queue
 import threading
 from collector.sysmon_listener import SysmonListener
 from ai_telemetry.agent_logger import AITelemetrySimulator
+from ai_telemetry.ipc_server import IPCTelemetryServer
 from correlation.correlation_engine import CorrelationEngine
 from detector.rule_engine import DetectionEngine
 from detector.containment import ContainmentEngine
@@ -11,7 +12,7 @@ from analyzer.nlp_classifier import AISecurityAnalyzer
 
 def main():
     print("=== AI Runtime Threat Detection & Response Platform ===")
-    print("[*] Starting All 8 Phases: Sysmon + Telemetry + Correlation + Detection + Containment + Neo4j + NLP")
+    print("[*] Starting All 8 Phases: Sysmon + Telemetry + IPC + Correlation + Detection + Containment + Neo4j + NLP")
     
     # Setup queues
     sysmon_queue = queue.Queue()
@@ -40,26 +41,35 @@ def main():
     
     # Initialize components
     sysmon_listener = SysmonListener(sysmon_queue)
-    # ai_simulator: IPC Channel receiver - chi dung khi trigger thu cong trong Demo
-    # Trong thuc te, Cursor/Copilot se day JSON event vao day qua Named Pipe
+
+    # AI Telemetry Simulator: dung cho demo thu cong
     ai_simulator = AITelemetrySimulator(ai_event_queue)
+
+    # IPC Server: nhan event that tu AI Agent qua Named Pipe / Socket
+    # Tich hop san PromptMonitor, ToolMonitor, ResponseMonitor ben trong
+    ipc_server = IPCTelemetryServer(ai_event_queue)
+
     correlation_engine = CorrelationEngine(sysmon_queue, ai_event_queue, incident_queue)
     detection_engine = DetectionEngine(incident_queue, action_queue)
     containment_engine = ContainmentEngine(containment_queue)
     neo4j_graph = Neo4jIncidentGraph(neo4j_queue)
     nlp_analyzer = AISecurityAnalyzer(nlp_queue)
     
-    # Start engines
+    # Start engines (thu tu: downstream truoc, upstream sau)
     nlp_analyzer.start()
     neo4j_graph.start()
     containment_engine.start()
     detection_engine.start()
     correlation_engine.start()
     sysmon_listener.start()
+    ipc_server.start()
     
     print("[*] EDR Engine is FULLY OPERATIONAL (8/8 Phases).")
+    print("[*] AI Telemetry IPC : \\\\.\\pipe\\ai_edr_telemetry  |  127.0.0.1:9999")
+    print("[*] Incident Dashboard: http://localhost:8888")
     print("[*] Chế độ BACKGROUND: Tự động đánh hơi và tiêu diệt mọi tiến trình độc hại!")
     print("[*] Bấm [Ctrl+C] để thoát.")
+
     
     try:
         while True:
@@ -67,6 +77,7 @@ def main():
                 
     except KeyboardInterrupt:
         print("\n[*] Shutting down EDR Engine...")
+        ipc_server.stop()
         sysmon_listener.stop()
         correlation_engine.stop()
         detection_engine.stop()
@@ -77,3 +88,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

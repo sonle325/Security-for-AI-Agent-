@@ -32,8 +32,8 @@ class EventParser:
             except (ValueError, TypeError):
                 return None
                 
-            # We only care about Event ID 1, 3, 11
-            if event_id not in [1, 3, 11]:
+            # We care about Event ID 1, 3, 11, 13 (Registry), 22 (DNS)
+            if event_id not in [1, 3, 11, 13, 22]:
                 return None
                 
             timestamp_utc = system.get("TimeCreated", {}).get("@SystemTime")
@@ -70,6 +70,14 @@ class EventParser:
                 normalized["Protocol"] = event_data.get("Protocol", "")
             elif event_id == 11: # File Creation
                 normalized["TargetFilename"] = event_data.get("TargetFilename", "")
+            elif event_id == 13: # Registry Modification (SetValue)
+                normalized["EventType"] = event_data.get("EventType", "")
+                normalized["TargetObject"] = event_data.get("TargetObject", "")
+                normalized["Details"] = event_data.get("Details", "")
+            elif event_id == 22: # DNS Query
+                normalized["QueryName"] = event_data.get("QueryName", "")
+                normalized["QueryResults"] = event_data.get("QueryResults", "")
+                normalized["QueryStatus"] = event_data.get("QueryStatus", "")
                 
             return normalized
             

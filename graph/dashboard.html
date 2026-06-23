@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<title>AI Runtime Security — Incident Dashboard</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: 'Segoe UI', sans-serif;
+    background: #0d1117;
+    color: #c9d1d9;
+    min-height: 100vh;
+  }
+
+  .header {
+    background: linear-gradient(135deg, #161b22, #1c2333);
+    border-bottom: 1px solid #30363d;
+    padding: 16px 28px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+  .header h1 { font-size: 18px; color: #f0f6fc; font-weight: 600; }
+  .badge {
+    background: #388bfd22;
+    border: 1px solid #388bfd55;
+    color: #58a6ff;
+    padding: 2px 10px;
+    border-radius: 20px;
+    font-size: 12px;
+  }
+  .live-dot {
+    width: 8px; height: 8px;
+    background: #3fb950;
+    border-radius: 50%;
+    animation: blink 1.5s infinite;
+  }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+  .stats {
+    display: flex;
+    gap: 14px;
+    padding: 16px 28px;
+    flex-wrap: wrap;
+  }
+  .stat-card {
+    background: #161b22;
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    padding: 14px 20px;
+    flex: 1;
+    min-width: 130px;
+  }
+  .stat-card .label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
+  .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+  .c-total  .value { color: #58a6ff; }
+  .c-crit   .value { color: #f85149; }
+  .c-high   .value { color: #d29922; }
+  .c-prompt .value { color: #bc8cff; }
+  .c-tool   .value { color: #f78166; }
+  .c-data   .value { color: #d29922; }
+
+  .filter-bar {
+    padding: 8px 16px;
+    background: #0d1117;
+    border-bottom: 1px solid #21262d;
+    display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
+  }
+  .filter-bar span { font-size: 11px; color: #6e7681; }
+  .filter-bar button {
+    background: #21262d; border: 1px solid #30363d;
+    color: #c9d1d9; padding: 4px 12px; border-radius: 6px;
+    font-size: 11px; cursor: pointer; transition: all .15s;
+  }
+  .filter-bar button:hover, .filter-bar button.active {
+    background: #388bfd22; border-color: #388bfd; color: #58a6ff;
+  }
+
+  .main { display: flex; height: calc(100vh - 200px); }
+
+  .list-panel {
+    width: 400px; border-right: 1px solid #30363d;
+    overflow-y: auto; flex-shrink: 0;
+  }
+  .list-panel h2 {
+    padding: 10px 16px; font-size: 12px; color: #8b949e;
+    background: #161b22; border-bottom: 1px solid #30363d;
+    position: sticky; top: 0; z-index: 1;
+    text-transform: uppercase; letter-spacing: 0.5px;
+  }
+  .incident-item {
+    padding: 11px 16px; border-bottom: 1px solid #21262d;
+    cursor: pointer; transition: background .12s;
+  }
+  .incident-item:hover { background: #161b22; }
+  .incident-item.selected { background: #1c2333; border-left: 3px solid #388bfd; }
+  .inc-id { font-size: 12px; font-weight: 600; color: #58a6ff; }
+  .inc-type { font-size: 11px; color: #8b949e; margin-top: 2px; }
+  .inc-ts { font-size: 11px; color: #6e7681; margin-top: 2px; }
+
+  .sev-badge {
+    display: inline-block; padding: 1px 7px; border-radius: 10px;
+    font-size: 10px; font-weight: 600; text-transform: uppercase;
+  }
+  .sev-CRITICAL { background:#f8514922; color:#f85149; border:1px solid #f8514944; }
+  .sev-HIGH     { background:#d2992222; color:#d29922; border:1px solid #d2992244; }
+  .sev-MEDIUM   { background:#388bfd22; color:#58a6ff; border:1px solid #388bfd44; }
+  .sev-LOW      { background:#3fb95022; color:#3fb950; border:1px solid #3fb95044; }
+  .sev-         { background:#30363d;   color:#8b949e; border:1px solid #30363d;   }
+
+  .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  #graph-container {
+    flex: 1; position: relative; overflow: hidden;
+    background: radial-gradient(ellipse at center, #161b22 0%, #0d1117 70%);
+  }
+  svg#graph { width: 100%; height: 100%; }
+
+  #empty-msg {
+    position: absolute; top: 50%; left: 50%;
+    transform: translate(-50%,-50%);
+    text-align: center; color: #30363d; pointer-events: none;
+  }
+  #empty-msg div:first-child { font-size: 48px; }
+  #empty-msg div:last-child  { font-size: 14px; margin-top: 8px; }
+
+  .node-Incident    circle { fill: #f85149; stroke: #f8514966; stroke-width: 2; }
+  .node-AIAgent     circle { fill: #58a6ff; stroke: #388bfd66; stroke-width: 2; }
+  .node-Process     circle { fill: #3fb950; stroke: #3fb95066; stroke-width: 2; }
+  .node-Endpoint    circle { fill: #d29922; stroke: #d2992266; stroke-width: 2; }
+  .node-PromptEvent circle { fill: #bc8cff; stroke: #bc8cff66; stroke-width: 2; }
+  .node-NetworkConn circle { fill: #f78166; stroke: #f7816666; stroke-width: 2; }
+  .node-label { fill: #c9d1d9; font-size: 10px; text-anchor: middle; pointer-events: none; }
+  .edge-line  { stroke: #30363d; stroke-width: 1.5; marker-end: url(#arrow); }
+  .edge-label { fill: #6e7681; font-size: 9px; text-anchor: middle; }
+
+  .detail-panel {
+    height: 190px; border-top: 1px solid #30363d;
+    background: #161b22; padding: 14px 18px;
+    overflow-y: auto; font-size: 12px; line-height: 1.6;
+  }
+  .detail-panel h3 { color: #f0f6fc; margin-bottom: 8px; font-size: 13px; }
+  .kv { display: flex; gap: 12px; margin-bottom: 3px; }
+  .kv .k { color: #8b949e; min-width: 140px; }
+  .kv .v { color: #c9d1d9; word-break: break-all; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="live-dot"></div>
+  <h1>🛡️ AI Runtime Security — Incident Dashboard</h1>
+  <span class="badge">LIVE</span>
+  <span class="badge" id="update-time">--</span>
+</div>
+
+<div class="stats">
+  <div class="stat-card c-total">
+    <div class="label">Tổng Incident</div>
+    <div class="value" id="s-total">0</div>
+  </div>
+  <div class="stat-card c-crit">
+    <div class="label">Critical</div>
+    <div class="value" id="s-crit">0</div>
+  </div>
+  <div class="stat-card c-high">
+    <div class="label">High</div>
+    <div class="value" id="s-high">0</div>
+  </div>
+  <div class="stat-card c-prompt">
+    <div class="label">Prompt Injection</div>
+    <div class="value" id="s-prompt">0</div>
+  </div>
+  <div class="stat-card c-tool">
+    <div class="label">Tool Anomaly</div>
+    <div class="value" id="s-tool">0</div>
+  </div>
+  <div class="stat-card c-data">
+    <div class="label">Data Disclosure</div>
+    <div class="value" id="s-data">0</div>
+  </div>
+</div>
+
+<div class="filter-bar">
+  <span>Lọc:</span>
+  <button class="active" onclick="setFilter('ALL', this)">Tất cả</button>
+  <button onclick="setFilter('PROMPT_INJECTION', this)">Prompt Injection</button>
+  <button onclick="setFilter('TOOL_ANOMALY', this)">Tool Anomaly</button>
+  <button onclick="setFilter('DATA_DISCLOSURE', this)">Data Disclosure</button>
+  <button onclick="setFilter('CORRELATED', this)">Correlated</button>
+  <button onclick="setFilter('ORPHAN_SUSPICIOUS', this)">Suspicious</button>
+</div>
+
+<div class="main">
+  <div class="list-panel">
+    <h2>Incidents (<span id="list-count">0</span>)</h2>
+    <div id="incident-list"></div>
+  </div>
+
+  <div class="right-panel">
+    <div id="graph-container">
+      <svg id="graph">
+        <defs>
+          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L0,6 L8,3 z" fill="#30363d"/>
+          </marker>
+        </defs>
+        <g id="graph-root"></g>
+      </svg>
+      <div id="empty-msg">
+        <div>🕸️</div>
+        <div>Chọn Incident để xem đồ thị</div>
+      </div>
+    </div>
+    <div class="detail-panel" id="detail-panel">
+      <div style="color:#6e7681">Chọn một Incident để xem chi tiết...</div>
+    </div>
+  </div>
+</div>
+
+<script>
+let allIncidents = [];
+let selectedId   = null;
+let currentFilter = 'ALL';
+
+const TYPE_LABEL = {
+  PROMPT_INJECTION: '💉 Prompt Injection',
+  TOOL_ANOMALY:     '🔧 Tool Anomaly',
+  DATA_DISCLOSURE:  '🔓 Data Disclosure',
+  CORRELATED:       '🔗 Correlated',
+  ORPHAN_SUSPICIOUS:'⚠️ Suspicious',
+};
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-bar button').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  renderList();
+}
+
+function filtered() {
+  return currentFilter === 'ALL'
+    ? allIncidents
+    : allIncidents.filter(i => i.type === currentFilter);
+}
+
+function renderList() {
+  const items = filtered();
+  document.getElementById('list-count').textContent = items.length;
+  const container = document.getElementById('incident-list');
+  container.innerHTML = '';
+  [...items].reverse().forEach(inc => {
+    const div = document.createElement('div');
+    div.className = 'incident-item' + (inc.id === selectedId ? ' selected' : '');
+    div.onclick = () => select(inc.id);
+    const ts = inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString('vi-VN') : '--';
+    div.innerHTML = `
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <span class="inc-id">${inc.id}</span>
+        <span class="sev-badge sev-${inc.severity || ''}">${inc.severity || '?'}</span>
+      </div>
+      <div class="inc-type">${TYPE_LABEL[inc.type] || inc.type}</div>
+      <div class="inc-ts">🤖 ${inc.agent} · ${ts}</div>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function select(id) {
+  selectedId = id;
+  const inc = allIncidents.find(i => i.id === id);
+  if (!inc) return;
+  renderList();
+  document.getElementById('empty-msg').style.display = 'none';
+  drawGraph(inc);
+  showDetail(inc);
+}
+
+function showDetail(inc) {
+  const rows = [
+    ['Incident ID', inc.id],
+    ['Loại', inc.type],
+    ['Severity', inc.severity],
+    ['AI Agent', inc.agent],
+    ['Action', inc.action],
+    ['Timestamp', inc.timestamp],
+    ['Process', inc.process || '—'],
+    ['Command Line', inc.cmdline || '—'],
+    ['Event ID', inc.event_id || '—'],
+    ['Prompt Score', inc.prompt_score > 0 ? `${inc.prompt_score}/100 (${inc.prompt_risk})` : '—'],
+    ['Tool Risk', inc.tool_risk || '—'],
+    ['Data Risk', inc.data_risk || '—'],
+  ];
+  document.getElementById('detail-panel').innerHTML =
+    `<h3>📋 ${inc.id}</h3>` +
+    rows.map(([k,v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+}
+
+function drawGraph(inc) {
+  const root = document.getElementById('graph-root');
+  const svg  = document.getElementById('graph');
+  root.innerHTML = '';
+  const W = svg.clientWidth || 700, H = svg.clientHeight || 400;
+  const cx = W / 2, cy = H / 2;
+
+  const nodes = [
+    { id:'incident', type:'Incident',  label: inc.id,              r:36, x:cx,       y:cy       },
+    { id:'agent',    type:'AIAgent',   label: inc.agent || 'Agent', r:28, x:cx-220,   y:cy-80    },
+    { id:'endpoint', type:'Endpoint',  label: 'Endpoint',           r:24, x:cx+220,   y:cy-80    },
+  ];
+  if (inc.process)       nodes.push({ id:'process', type:'Process',     label:(inc.process.split('\\').pop()||'').substring(0,15), r:24, x:cx,      y:cy+160 });
+  if (inc.prompt_score > 0) nodes.push({ id:'prompt', type:'PromptEvent', label:`Prompt\n${inc.prompt_risk}`, r:22, x:cx-200, y:cy+120 });
+
+  const edges = [
+    { from:'agent', to:'incident', label:'TRIGGERED' },
+    { from:'incident', to:'endpoint', label:'ON' },
+  ];
+  if (inc.process)        edges.push({ from:'incident', to:'process', label:'EXECUTED' });
+  if (inc.prompt_score>0) edges.push({ from:'incident', to:'prompt',  label:'PROMPT'   });
+
+  const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
+
+  // Edges
+  edges.forEach(e => {
+    const s = nodeMap[e.from], d = nodeMap[e.to];
+    if (!s || !d) return;
+    const dx = d.x - s.x, dy = d.y - s.y;
+    const len = Math.sqrt(dx*dx+dy*dy);
+    const ux = dx/len, uy = dy/len;
+    const x1 = s.x+ux*s.r, y1 = s.y+uy*s.r;
+    const x2 = d.x-ux*(d.r+8), y2 = d.y-uy*(d.r+8);
+
+    const line = document.createElementNS('http://www.w3.org/2000/svg','line');
+    line.setAttribute('x1',x1); line.setAttribute('y1',y1);
+    line.setAttribute('x2',x2); line.setAttribute('y2',y2);
+    line.setAttribute('class','edge-line');
+    root.appendChild(line);
+
+    const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
+    lbl.setAttribute('x',(x1+x2)/2); lbl.setAttribute('y',(y1+y2)/2-4);
+    lbl.setAttribute('class','edge-label');
+    lbl.textContent = e.label;
+    root.appendChild(lbl);
+  });
+
+  // Nodes
+  nodes.forEach(n => {
+    const g = document.createElementNS('http://www.w3.org/2000/svg','g');
+    g.setAttribute('class',`node-${n.type}`);
+    g.setAttribute('transform',`translate(${n.x},${n.y})`);
+
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('r', n.r);
+    c.style.filter = 'drop-shadow(0 2px 10px rgba(0,0,0,0.5))';
+    g.appendChild(c);
+
+    n.label.split('\n').forEach((line, i, arr) => {
+      const t = document.createElementNS('http://www.w3.org/2000/svg','text');
+      t.setAttribute('class','node-label');
+      t.setAttribute('y', (i-(arr.length-1)/2)*13);
+      t.textContent = line;
+      g.appendChild(t);
+    });
+
+    const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
+    sub.setAttribute('class','node-label');
+    sub.setAttribute('y', n.r+14);
+    sub.setAttribute('fill','#6e7681');
+    sub.textContent = n.type;
+    g.appendChild(sub);
+
+    root.appendChild(g);
+  });
+}
+
+function updateStats(data) {
+  document.getElementById('s-total').textContent  = data.length;
+  document.getElementById('s-crit').textContent   = data.filter(i=>i.severity==='CRITICAL').length;
+  document.getElementById('s-high').textContent   = data.filter(i=>i.severity==='HIGH').length;
+  document.getElementById('s-prompt').textContent = data.filter(i=>i.type==='PROMPT_INJECTION').length;
+  document.getElementById('s-tool').textContent   = data.filter(i=>i.type==='TOOL_ANOMALY').length;
+  document.getElementById('s-data').textContent   = data.filter(i=>i.type==='DATA_DISCLOSURE').length;
+}
+
+async function fetchIncidents() {
+  try {
+    const r = await fetch('/api/incidents');
+    allIncidents = await r.json();
+    updateStats(allIncidents);
+    renderList();
+    document.getElementById('update-time').textContent = new Date().toLocaleTimeString('vi-VN');
+  } catch(e) {}
+}
+
+fetchIncidents();
+setInterval(fetchIncidents, 2000);
+</script>
+</body>
+</html>
