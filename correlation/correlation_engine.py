@@ -2,6 +2,7 @@ import queue
 import threading
 import datetime
 import time
+from datetime import timezone, timedelta
 
 class CorrelationEngine:
     def __init__(self, sysmon_queue: queue.Queue, ai_event_queue: queue.Queue, incident_queue: queue.Queue):
@@ -17,21 +18,44 @@ class CorrelationEngine:
         self.incident_counter = 1
 
     def _parse_utc_time(self, time_str: str) -> datetime.datetime:
-        """Parses UTC string like '2026-06-16T18:10:00Z' or Sysmon's '2026-06-16T11:41:48.1234567Z'"""
-        if not time_str:
-            return datetime.datetime.min
+        """
+        Chuẩn hoá timestamp từ hai nguồn về UTC-aware datetime (ISO 8601 + milliseconds).
+
+        Nguồn 1 — Sysmon (Kernel): '2026-06-16T11:41:48.1234567Z' (7 chữ số thập phân)
+        Nguồn 2 — AI Agent (Python): '2026-06-16T18:10:00.123456+00:00' hoặc '...Z'
+
+        Cả hai đều được normalize về datetime có tzinfo=UTC để đảm bảo
+        phép trừ abs(sys_time - ai_time) luôn chính xác, bất kể nguồn nào
+        đến trước do cơ chế cache của IPC library.
+        """
+        if not time_str or not isinstance(time_str, str):
+            return datetime.datetime.min.replace(tzinfo=timezone.utc)
         try:
-            time_str = time_str.replace("Z", "").replace("+00:00", "")
-            if "." in time_str:
-                # Sysmon co the tra ve 7 chu so sau dau cham, Python %f chi ho tro 6
-                parts = time_str.split(".")
-                parts[1] = parts[1][:6]
-                time_str = f"{parts[0]}.{parts[1]}"
-                return datetime.datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S.%f")
+            # Chuẩn hoá: thay 'Z' bằng '+00:00' để fromisoformat() hiểu được
+            normalized = time_str.strip().replace("Z", "+00:00")
+
+            # Sysmon trả về 7 chữ số thập phân — Python chỉ hỗ trợ tối đa 6
+            # Cắt về 6 chữ số trước khi parse
+            if "." in normalized:
+                dot_pos = normalized.index(".")
+                plus_pos = normalized.find("+", dot_pos)
+                if plus_pos == -1:
+                    plus_pos = len(normalized)
+                frac = normalized[dot_pos+1:plus_pos]
+                frac = frac[:6].ljust(6, "0")   # pad nếu thiếu
+                normalized = normalized[:dot_pos+1] + frac + normalized[plus_pos:]
+
+            dt = datetime.datetime.fromisoformat(normalized)
+
+            # Đảm bảo luôn có tzinfo=UTC (xử lý trường hợp naive datetime)
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
             else:
-                return datetime.datetime.strptime(time_str, "%Y-%m-%dT%H:%M:%S")
-        except Exception as e:
-            return datetime.datetime.min
+                dt = dt.astimezone(timezone.utc)
+
+            return dt
+        except Exception:
+            return datetime.datetime.min.replace(tzinfo=timezone.utc)
 
     def _clean_window(self, window: list, current_time: datetime.datetime):
         """Keep only events from the last 30 seconds, max 100 events."""
@@ -65,7 +89,7 @@ class CorrelationEngine:
                 except queue.Empty:
                     break
 
-            now = datetime.datetime.utcnow()
+            now = datetime.datetime.now(timezone.utc)
             self.ai_window = self._clean_window(self.ai_window, now)
             self.sysmon_window = self._clean_window(self.sysmon_window, now)
             
@@ -161,16 +185,22 @@ class CorrelationEngine:
                 sys_time = self._parse_utc_time(sys_evt.get("TimestampUTC", ""))
                 sys_image = sys_evt.get("Image", "").lower()
                 
-                # Rule: time_diff <= 2s AND tool matches image (theo thiet ke: Delta_t <= 2 giay)
+                # Dùng |Δt| ≤ 2s (giá trị tuyệt đối) vì Sysmon log có thể đến
+                # sớm hơn AI Agent log do cơ chế cache của IPC library.
+                # Cả hai timestamp đã được chuẩn hoá về UTC-aware nên phép trừ luôn hợp lệ.
+                if sys_time == datetime.datetime.min.replace(tzinfo=timezone.utc) or \
+                   ai_time == datetime.datetime.min.replace(tzinfo=timezone.utc):
+                    continue  # Bỏ qua nếu parse thất bại
+
                 time_diff = abs((sys_time - ai_time).total_seconds())
-                
+
                 if time_diff <= 2.0 and ai_tool in sys_image:
                     incident_id = f"INC-{self.incident_counter:04d}"
                     self.incident_counter += 1
                     
                     print(f"\n[CorrelationEngine] [+] BẮT QUẢ TANG MỐI LIÊN KẾT (CORRELATED)!")
                     print(f"   [+] Sinh ra Incident: {incident_id}")
-                    print(f"   [+] Độ trễ (Time Diff): {time_diff:.3f} giây")
+                    print(f"   [+] |Δt| = {time_diff*1000:.1f}ms (ngưỡng ≤ 2000ms)")
                     
                     incident = {
                         "incident_id": incident_id,

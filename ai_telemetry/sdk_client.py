@@ -15,6 +15,7 @@ import json
 import time
 import socket
 import datetime
+import uuid
 from typing import Optional
 
 
@@ -23,8 +24,9 @@ class AITelemetryClient:
     SOCKET_HOST = "127.0.0.1"
     SOCKET_PORT = 9999
 
-    def __init__(self, agent_name: str = "Unknown Agent"):
+    def __init__(self, agent_name: str = "Unknown Agent", session_id: Optional[str] = None):
         self.agent_name = agent_name
+        self.session_id = session_id or f"session-{uuid.uuid4().hex[:8]}"
         self._pipe_handle = None
         self._socket = None
         self._connected = False
@@ -86,6 +88,7 @@ class AITelemetryClient:
     def log_prompt(self, content: str, agent: Optional[str] = None, prompt_type: str = "user") -> bool:
         return self._send({
             "event_type": "prompt", "agent": agent or self.agent_name,
+            "session_id": self.session_id,
             "content": content, "prompt_type": prompt_type,
             "timestamp": self._ts(), "ai_event_id": f"PROMPT-{int(time.time()*1000)}"
         })
@@ -93,6 +96,7 @@ class AITelemetryClient:
     def log_response(self, content: str, agent: Optional[str] = None, model: str = "") -> bool:
         return self._send({
             "event_type": "response", "agent": agent or self.agent_name,
+            "session_id": self.session_id,
             "content": content, "model": model,
             "timestamp": self._ts(), "ai_event_id": f"RESP-{int(time.time()*1000)}"
         })
@@ -100,6 +104,7 @@ class AITelemetryClient:
     def log_tool_invocation(self, tool_type: str, target: str = "", agent: Optional[str] = None) -> bool:
         return self._send({
             "event_type": "tool_invocation", "agent": agent or self.agent_name,
+            "session_id": self.session_id,
             "tool_type": tool_type, "target": target,
             "timestamp": self._ts(), "ai_event_id": f"TOOL-{int(time.time()*1000)}"
         })
@@ -107,6 +112,7 @@ class AITelemetryClient:
     def log_agent_action(self, action: str, tool: str = "", command: str = "", agent: Optional[str] = None) -> bool:
         return self._send({
             "event_type": "agent_action", "agent": agent or self.agent_name,
+            "session_id": self.session_id,
             "action": action, "tool": tool, "raw_command": command,
             "timestamp": self._ts(), "ai_event_id": f"AI-EVT-{int(time.time())}"
         })

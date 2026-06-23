@@ -8,11 +8,11 @@ class Neo4jLoader:
     CYPHER_OUTPUT_FILE = "incident_graph_queries.cypher"
 
     # Schema mở rộng:
-    # (AIAgent)-[:TRIGGERED]->(Incident)-[:EXECUTED]->(Process)
-    #                    |                     |
-    #          (PromptEvent)            (NetworkConn)
-    #                                         |
-    #                                   (Endpoint)
+    # (Session)<-[:BELONGS_TO]-(Incident)-[:EXECUTED]->(Process)
+    #                             |  ^                   |
+    #                 (PromptEvent)  |             (NetworkConn)
+    #                                |                   |
+    #               (AIAgent)-[:TRIGGERED]         (Endpoint)
 
     @staticmethod
     def build_merge_query(incident: Dict[str, Any]) -> tuple:
@@ -72,6 +72,14 @@ class Neo4jLoader:
         MERGE (i)-[:MODIFIED_REGISTRY]->(r)
             """
 
+        # Thêm Session node
+        session_id = ai_event.get("session_id")
+        if session_id:
+            query += """
+        MERGE (s:Session {id: $session_id})
+        MERGE (i)-[:BELONGS_TO]->(s)
+            """
+
         prompt_analysis = incident.get("prompt_analysis", {})
         params = {
             "hostname": os.environ.get("COMPUTERNAME", "localhost"),
@@ -96,6 +104,7 @@ class Neo4jLoader:
             # Registry
             "reg_path":    sys_event.get("TargetObject", ""),
             "reg_details": sys_event.get("Details", ""),
+            "session_id":  ai_event.get("session_id", ""),
         }
 
         return query.strip(), params
@@ -174,6 +183,13 @@ class Neo4jLoader:
             lines += [
                 f"MERGE (r:RegistryKey {{path: '{reg_path}'}}) SET r.details = '{reg_det}';",
                 f"MATCH (i:Incident {{id: '{inc_id}'}}), (r:RegistryKey {{path: '{reg_path}'}}) MERGE (i)-[:MODIFIED_REGISTRY]->(r);",
+            ]
+
+        session_id = ai_event.get("session_id")
+        if session_id:
+            lines += [
+                f"MERGE (s:Session {{id: '{esc(session_id)}'}});",
+                f"MATCH (i:Incident {{id: '{inc_id}'}}), (s:Session {{id: '{esc(session_id)}'}}) MERGE (i)-[:BELONGS_TO]->(s);",
             ]
 
         cypher_block = "\n".join(lines) + "\n\n"

@@ -30,6 +30,7 @@ def push_incident(incident: Dict[str, Any]):
             "severity":     incident.get("severity", "MEDIUM"),
             "agent":        incident.get("ai_event", {}).get("agent", "Unknown"),
             "action":       incident.get("ai_event", {}).get("action", ""),
+            "session_id":   incident.get("ai_event", {}).get("session_id", ""),
             "timestamp":    incident.get("ai_event", {}).get("timestamp", ""),
             "process":      incident.get("sysmon_event", {}).get("Image", ""),
             "cmdline":      incident.get("sysmon_event", {}).get("CommandLine", ""),
