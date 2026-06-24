@@ -60,6 +60,8 @@ class AITelemetryClient:
         if not self._connected:
             return False
         try:
+            # Thêm mã token xác thực (chống Local Spoofing)
+            event["auth_token"] = "EDR_SECRET_2026"
             data = (json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8")
             if self._use_pipe and self._pipe_handle:
                 import win32file  # type: ignore

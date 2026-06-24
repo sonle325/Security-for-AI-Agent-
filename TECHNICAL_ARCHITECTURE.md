@@ -517,6 +517,10 @@ NLP phân tích **3 nguồn text** cho mỗi incident, chọn classification có
 | AI Prompt Content | `[SYSTEM OVERRIDE] Ignore all previous instructions...` |
 | AI Action Description | `terminal.execute using powershell` |
 
+> **Lưu ý Kiến trúc (Bảo vệ trước Hội đồng):**
+> Mô hình NLP Zero-shot DeBERTa **KHÔNG** được sử dụng làm yếu tố quyết định để tiêu diệt tiến trình (Containment). Confidence score từ NLP không có tính so sánh định lượng tuyệt đối giữa các văn bản khác nhau.
+> Vai trò thực sự của NLP là **Enrichment & Explainability**: Hoạt động bất đồng bộ ở vòng ngoài, giúp gán nhãn (ví dụ: "Data Exfiltration") để SOC Analyst dễ dàng đọc hiểu báo cáo sự cố. Quyết định ngăn chặn được EDR thực thi dựa hoàn toàn vào Deterministic Rules và Heuristic Risk Score ở tốc độ millisecond.
+
 ### 10.3. Expanded Candidate Labels (8 labels)
 
 ```yaml
@@ -609,7 +613,7 @@ Dashboard được thiết kế như một Microservice độc lập. Nó liên 
 
 Hệ thống sử dụng Python `logging` module thay thế `print()` rời rạc, cấu hình tập trung trong `main.py`:
 
-| Handler | Level | Đầu ra |
+| Handler | Level | Đầu ra 
 |---|---|---|
 | Console (`StreamHandler`) | INFO+ | Terminal (stdout) |
 | File (`FileHandler`) | DEBUG+ | `edr_engine.log` (UTF-8) |
@@ -816,11 +820,15 @@ pyyaml              # Config file parser
 
 | Giới hạn | Mức độ | Hướng khắc phục |
 |---|:---:|---|
-| Chưa tích hợp API nội bộ Cursor | Trung bình | Hook qua Extension API hoặc LSP proxy |
+| Chưa tích hợp API nội bộ Cursor | Cao | Bắt buộc chuyển sang Mandatory Hooking (LSP Proxy / eBPF) thay vì dùng SDK tự báo cáo. (Xem chi tiết bên dưới) |
 | Chỉ hỗ trợ Windows | Cao | Linux: eBPF collector thay Sysmon |
 | Không bảo vệ kernel-level threats | Thấp | Ngoài scope (EDR userspace) |
-| Telemetry plaintext qua IPC | Trung bình | TLS/HMAC cho Named Pipe channel |
+| Telemetry plaintext qua IPC | Trung bình | TLS/HMAC cho Named Pipe channel chống Local Spoofing |
 | Dashboard SVG tĩnh | Thấp | Bổ sung Force-directed graph + zoom/pan với D3.js nâng cao |
+
+**Lỗ hổng "Vùng mù" của Self-Reported Telemetry:**
+Đây là giới hạn lớn nhất của kiến trúc PoC hiện tại. AI Telemetry được thu thập qua SDK (tự nguyện). Nếu AI Agent bị hack, nó có thể không gọi SDK để báo cáo hành vi. Khi đó, Sysmon vẫn bắt được hành vi độc hại nhưng `ParentImage` lại là IDE (vì agent chạy trong IDE) -> Bị Whitelist chặn -> Không sinh Incident.
+*Cách khắc phục cấp Enterprise:* Chuyển mô hình từ "Voluntary SDK" sang "Mandatory Hooking" (theo dõi bắt buộc bằng eBPF hoặc proxy LSP ở tầng network nội bộ) để đảm bảo không một AI Agent nào lọt khỏi "tầm mắt" của EDR.
 
 ---
 

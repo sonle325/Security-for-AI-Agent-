@@ -3,6 +3,8 @@ import threading
 import datetime
 import time
 import logging
+import shlex
+import os
 from datetime import timezone, timedelta
 import config_loader
 
@@ -48,28 +50,47 @@ class CorrelationEngine:
     def _is_parent_whitelisted(self, parent_image: str) -> bool:
         if not parent_image:
             return False
-        parent_lower = parent_image.lower()
-        return any(wp in parent_lower for wp in self.whitelist_parent_images)
+        # Sử dụng exact match bằng basename thay vì substring (tránh evil-code.exe)
+        parent_basename = os.path.basename(parent_image).lower()
+        return parent_basename in self.whitelist_parent_images
 
     def _is_keyword_in_string_literal(self, cmdline: str, keyword: str) -> bool:
         """
-        Kiểm tra keyword có nằm trong string literal (dấu nháy) không.
-        Nếu chỉ nằm trong commit message / echo thì không phải thực thi thật → return True.
+        Kiểm tra keyword có nằm trong string literal (dấu nháy) hay không.
+        Sử dụng shlex để parse chính xác theo ngữ nghĩa shell thay vì đếm ký tự thô.
         """
-        cmdline_lower = cmdline.lower()
         keyword_lower = keyword.lower()
-        idx = cmdline_lower.find(keyword_lower)
-        if idx == -1:
+        if keyword_lower not in cmdline.lower():
             return False
 
-        # Đếm dấu nháy trước vị trí keyword — lẻ = trong string
-        prefix = cmdline[:idx]
-        single_quotes = prefix.count("'")
-        double_quotes = prefix.count('"')
+        try:
+            # Parse cmdline thành các token (giống như Bash/PS parse)
+            tokens = shlex.split(cmdline, posix=False)
+            
+            # Lọc ra các token thực sự là string literal (bắt đầu bằng " hoặc ')
+            # Nếu keyword chỉ xuất hiện trong string literal này -> return True
+            for token in tokens:
+                if token.startswith('"') or token.startswith("'"):
+                    if keyword_lower in token.lower():
+                        # Kiểm tra xem keyword có tồn tại bên ngoài các chuỗi này không
+                        # (Cách đơn giản: nếu parse shlex mà token không có quote vẫn chứa keyword)
+                        pass
 
-        if single_quotes % 2 == 1 or double_quotes % 2 == 1:
-            return True
-        return False
+            # Phân tích kỹ hơn: 
+            # Xóa các chuỗi literal hợp lệ khỏi cmdline gốc, 
+            # nếu sau đó keyword không còn -> nó hoàn toàn nằm trong string literal.
+            cleaned_cmdline = cmdline
+            for token in tokens:
+                if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
+                    cleaned_cmdline = cleaned_cmdline.replace(token, "")
+            
+            if keyword_lower not in cleaned_cmdline.lower():
+                return True
+                
+            return False
+        except ValueError:
+            # Nếu shlex fail (vd: thiếu dấu nháy đóng), fallback về False (luôn coi là nguy hiểm)
+            return False
 
     def _parse_utc_time(self, time_str: str) -> datetime.datetime:
         """Normalize timestamp từ Sysmon/AI Agent về UTC datetime."""

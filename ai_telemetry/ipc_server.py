@@ -36,6 +36,11 @@ class IPCTelemetryServer:
             return None
         if not isinstance(event, dict):
             return None
+            
+        # Xác thực Token chống Local Fake Event Injection
+        if event.get("auth_token") != "EDR_SECRET_2026":
+            logger.warning("Cảnh báo: Bắt được IPC event thiếu Auth Token hợp lệ!")
+            return None
 
         event_type = (event.get("event_type") or event.get("type") or "").lower()
 

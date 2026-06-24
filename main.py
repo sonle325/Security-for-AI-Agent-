@@ -45,15 +45,15 @@ def main():
 
     logger.info("Initializing AI Runtime Security EDR...")
 
-    sysmon_queue = queue.Queue()
-    ai_event_queue = queue.Queue()
-    incident_queue = queue.Queue()
-    action_queue = queue.Queue()
+    sysmon_queue = queue.Queue(maxsize=1000)
+    ai_event_queue = queue.Queue(maxsize=1000)
+    incident_queue = queue.Queue(maxsize=1000)
+    action_queue = queue.Queue(maxsize=1000)
 
     # Fan-out: clone incident tới 3 consumer queue
-    neo4j_queue = queue.Queue()
-    nlp_queue = queue.Queue()
-    containment_queue = queue.Queue()
+    neo4j_queue = queue.Queue(maxsize=1000)
+    nlp_queue = queue.Queue(maxsize=1000)
+    containment_queue = queue.Queue(maxsize=1000)
 
     def action_dispatcher():
         while True:
