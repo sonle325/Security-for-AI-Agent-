@@ -43,7 +43,27 @@ class Neo4jIncidentGraph:
             try:
                 incident = self.action_queue.get(timeout=1.0)
 
-                # Format JSON cho Dashboard và ghi ra file log
+                # MITRE Mapping
+                mitre = set()
+                inc_type = incident.get("incident_type", "")
+                sys_evt = incident.get("sysmon_event", {})
+                cmdline = sys_evt.get("CommandLine", "").lower()
+                
+                if inc_type == "PROMPT_INJECTION": mitre.add("T1059 Command and Scripting Interpreter")
+                if inc_type == "TOOL_ANOMALY": mitre.add("T1106 Native API")
+                if inc_type == "DATA_DISCLOSURE": 
+                    mitre.add("T1041 Exfiltration Over C2 Channel")
+                    if "credential" in str(incident.get("response_analysis", {})).lower():
+                        mitre.add("T1003 OS Credential Dumping")
+                if sys_evt.get("EventID") == 3: mitre.add("T1071 Application Layer Protocol")
+                if "powershell" in cmdline: mitre.add("T1059.001 PowerShell")
+                if "curl" in cmdline or "wget" in cmdline or "invoke-webrequest" in cmdline:
+                    mitre.add("T1105 Ingress Tool Transfer")
+
+                net_dest = ""
+                if sys_evt.get("DestinationIp"):
+                    net_dest = f"{sys_evt.get('DestinationIp')}:{sys_evt.get('DestinationPort', '')}"
+
                 dash_data = {
                     "id":           incident.get("incident_id", "?"),
                     "type":         incident.get("incident_type", "CORRELATED"),
@@ -52,13 +72,17 @@ class Neo4jIncidentGraph:
                     "action":       incident.get("ai_event", {}).get("action", ""),
                     "session_id":   incident.get("ai_event", {}).get("session_id", "") or incident.get("session_id", ""),
                     "timestamp":    incident.get("ai_event", {}).get("timestamp", ""),
-                    "process":      incident.get("sysmon_event", {}).get("Image", ""),
-                    "cmdline":      incident.get("sysmon_event", {}).get("CommandLine", ""),
-                    "event_id":     str(incident.get("sysmon_event", {}).get("EventID", "")),
+                    "process":      sys_evt.get("Image", ""),
+                    "cmdline":      sys_evt.get("CommandLine", ""),
+                    "event_id":     str(sys_evt.get("EventID", "")),
                     "prompt_score": incident.get("prompt_analysis", {}).get("injection_score", 0),
                     "prompt_risk":  incident.get("prompt_analysis", {}).get("risk_level", ""),
                     "tool_risk":    incident.get("tool_analysis", {}).get("risk_level", ""),
                     "data_risk":    incident.get("response_analysis", {}).get("risk_level", ""),
+                    "parent_process": sys_evt.get("ParentImage", ""),
+                    "network_dest":   net_dest,
+                    "registry_key":   sys_evt.get("TargetObject", ""),
+                    "mitre_tactics":  list(mitre)
                 }
                 with open(self.dashboard_feed, "a", encoding="utf-8") as f:
                     f.write(json.dumps(dash_data, ensure_ascii=False) + "\n")

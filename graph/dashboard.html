@@ -194,7 +194,7 @@
   .chain-empty { color: #6e7681; font-size: 12px; text-align: center; padding: 30px; }
 
   .detail-panel {
-    height: 190px; border-top: 1px solid #30363d;
+    height: 240px; border-top: 1px solid #30363d;
     background: #161b22; padding: 14px 18px;
     overflow-y: auto; font-size: 12px; line-height: 1.6;
   }
@@ -202,6 +202,21 @@
   .kv { display: flex; gap: 12px; margin-bottom: 3px; }
   .kv .k { color: #8b949e; min-width: 140px; }
   .kv .v { color: #c9d1d9; word-break: break-all; }
+  
+  .mitre-tag {
+    display: inline-block; background: #21262d; border: 1px solid #30363d;
+    color: #8b949e; padding: 2px 8px; border-radius: 4px; font-size: 10px;
+    margin-right: 4px; margin-bottom: 4px; cursor: default;
+  }
+  .mitre-tag:hover { border-color: #58a6ff; color: #c9d1d9; }
+  
+  .process-tree {
+    font-family: monospace; font-size: 11px; background: #0d1117;
+    padding: 8px; border-radius: 6px; border: 1px solid #30363d;
+    margin-top: 4px; line-height: 1.4; color: #c9d1d9;
+  }
+  .process-tree .hl { color: #3fb950; font-weight: bold; }
+  .process-tree .net { color: #f78166; }
 </style>
 </head>
 <body>
@@ -361,6 +376,27 @@ function select(id) {
 }
 
 function showDetail(inc) {
+  let mitreHtml = '—';
+  if (inc.mitre_tactics && inc.mitre_tactics.length > 0) {
+    mitreHtml = inc.mitre_tactics.map(t => `<span class="mitre-tag">${t}</span>`).join('');
+  }
+
+  let treeHtml = '';
+  if (inc.process) {
+    let parent = inc.parent_process ? inc.parent_process.split('\\').pop() : 'Unknown_Parent.exe';
+    let child = inc.process.split('\\').pop();
+    treeHtml = `<div class="process-tree">
+      <div>${parent}</div>
+      <div> └── <span class="hl">${child}</span></div>`;
+    if (inc.network_dest) {
+      treeHtml += `<div>      └── <span class="net">Network: ${inc.network_dest}</span></div>`;
+    }
+    if (inc.registry_key) {
+      treeHtml += `<div>      └── <span class="net">Reg: ${inc.registry_key.split('\\').pop()}</span></div>`;
+    }
+    treeHtml += `</div>`;
+  }
+
   const rows = [
     ['Incident ID', inc.id],
     ['Loại', inc.type],
@@ -368,8 +404,9 @@ function showDetail(inc) {
     ['Session ID', inc.session_id || '—'],
     ['AI Agent', inc.agent],
     ['Action', inc.action],
+    ['MITRE ATT&CK', mitreHtml],
     ['Timestamp', inc.timestamp],
-    ['Process', inc.process || '—'],
+    ['Process Tree', treeHtml || '—'],
     ['Command Line', inc.cmdline || '—'],
     ['Event ID', inc.event_id || '—'],
     ['Prompt Score', inc.prompt_score > 0 ? `${inc.prompt_score}/100 (${inc.prompt_risk})` : '—'],
@@ -378,7 +415,7 @@ function showDetail(inc) {
   ];
   document.getElementById('detail-panel').innerHTML =
     `<h3>📋 ${inc.id}</h3>` +
-    rows.map(([k,v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
+    rows.map(([k,v]) => `<div class="kv"><span class="k">${k}</span><span class="v" style="${k==='Process Tree'||k==='MITRE ATT&CK'?'flex:1':''}">${v}</span></div>`).join('');
 }
 
 /* ==================== GRAPH ==================== */
@@ -398,6 +435,9 @@ function drawGraph(inc) {
   if (inc.prompt_score>0) nodes.push({ id:'prompt',  type:'PromptEvent', label:`Prompt\n${inc.prompt_risk}`, r:22, x:cx-200, y:cy+120 });
   if (inc.tool_risk && inc.tool_risk !== '—') nodes.push({ id:'tool', type:'ToolAnomaly', label:`Tool\n${inc.tool_risk}`, r:22, x:cx-60, y:cy+160 });
   if (inc.data_risk && inc.data_risk !== '—') nodes.push({ id:'data', type:'DataLeak', label:`Data\n${inc.data_risk}`, r:22, x:cx+180, y:cy+140 });
+  
+  if (inc.network_dest)   nodes.push({ id:'network', type:'NetworkConn', label:inc.network_dest.split(':')[0], r:22, x:cx+200, y:cy+240 });
+  if (inc.registry_key)   nodes.push({ id:'registry',type:'Endpoint',    label:'Registry', r:22, x:cx+120, y:cy+260 });
 
   const edges = [
     { from:'agent', to:'incident', label:'TRIGGERED' },
@@ -407,6 +447,9 @@ function drawGraph(inc) {
   if (inc.prompt_score>0) edges.push({ from:'incident', to:'prompt',  label:'PROMPT'   });
   if (inc.tool_risk && inc.tool_risk !== '—') edges.push({ from:'incident', to:'tool', label:'TOOL' });
   if (inc.data_risk && inc.data_risk !== '—') edges.push({ from:'incident', to:'data', label:'LEAK' });
+  if (inc.network_dest && inc.process) edges.push({ from:'process', to:'network', label:'CONN' });
+  else if (inc.network_dest) edges.push({ from:'incident', to:'network', label:'CONN' });
+  if (inc.registry_key) edges.push({ from:'incident', to:'registry', label:'MODIFIED' });
 
   const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
 
@@ -523,24 +566,54 @@ function drawChain(inc) {
   const chain = allIncidents.filter(i => i.session_id === sessionId)
     .sort((a,b) => new Date(a.timestamp||0) - new Date(b.timestamp||0));
 
-  let html = `<div class="chain-title">⛓️ Attack Chain — Session: ${sessionId} (${chain.length} steps)</div>`;
+  let html = `<div class="chain-title">⛓️ Attack Chain — Session: ${sessionId}</div>`;
 
-  chain.forEach((item, idx) => {
-    const typeLabel = TYPE_LABEL[item.type] || item.type;
-    const isSelected = item.id === inc.id ? 'border-color: #58a6ff;' : '';
-    const ts = item.timestamp ? new Date(item.timestamp).toLocaleTimeString('vi-VN') : '';
+  let chainSteps = [];
+  
+  // Unpack từng incident thành các bước cụ thể
+  chain.forEach(item => {
+    // 1. Prompt
+    if (item.prompt_score > 0) {
+      chainSteps.push({ id: item.id, type: 'Prompt Injection', action: `AI Agent received malicious prompt`, sev: item.prompt_risk || 'HIGH' });
+    }
+    // 2. Tool
+    if (item.tool_risk && item.tool_risk !== '—' || item.action === 'terminal' || item.action === 'execute') {
+      chainSteps.push({ id: item.id, type: 'Tool Invocation', action: `Agent called tool: ${item.action}`, sev: item.tool_risk && item.tool_risk !== '—' ? item.tool_risk : 'MEDIUM' });
+    }
+    // 3. Process
+    if (item.process) {
+      chainSteps.push({ id: item.id, type: 'Process Execution', action: `Executed: ${item.process.split('\\').pop()}`, sev: item.severity });
+    }
+    // 4. Network
+    if (item.network_dest) {
+      chainSteps.push({ id: item.id, type: 'Network Activity', action: `Connected to ${item.network_dest}`, sev: 'HIGH' });
+    }
+    // 5. Data Disclosure
+    if (item.data_risk && item.data_risk !== '—') {
+      chainSteps.push({ id: item.id, type: 'Data Disclosure', action: `Sensitive data leaked in AI response`, sev: item.data_risk });
+    }
+  });
 
+  // Nếu list rỗng thì hiển thị incident cơ bản
+  if (chainSteps.length === 0) {
+    chain.forEach(item => {
+      chainSteps.push({ id: item.id, type: item.type, action: `Agent action: ${item.action}`, sev: item.severity });
+    });
+  }
+
+  chainSteps.forEach((step, idx) => {
+    const isSelected = step.id === inc.id ? 'border-color: #58a6ff;' : '';
     html += `
-      <div class="chain-node" style="${isSelected}" onclick="select('${item.id}')">
+      <div class="chain-node" style="${isSelected}" onclick="select('${step.id}')">
         <div style="display:flex;justify-content:space-between;align-items:center">
-          <span class="cn-id">${item.id}</span>
-          <span class="sev-badge sev-${item.severity||''}">${item.severity||'?'}</span>
+          <span class="cn-id">${step.id}</span>
+          <span class="sev-badge sev-${step.sev}">${step.sev}</span>
         </div>
-        <div class="cn-type">${typeLabel} · ${ts}</div>
-        <div class="cn-action">🤖 ${item.agent} → ${item.action || 'N/A'}</div>
+        <div class="cn-type">${step.type}</div>
+        <div class="cn-action">▸ ${step.action}</div>
       </div>
     `;
-    if (idx < chain.length - 1) {
+    if (idx < chainSteps.length - 1) {
       html += `<div class="chain-arrow">↓</div>`;
     }
   });
