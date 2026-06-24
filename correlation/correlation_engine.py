@@ -23,6 +23,9 @@ class CorrelationEngine:
 
         # session_id -> list of ai_events
         self.session_events = {}
+        
+        # Lock để đồng bộ hóa luồng khi đọc/ghi vào RAM buffer
+        self.buffer_lock = threading.Lock()
 
         corr_cfg = config_loader.get("correlation", default={})
         self.time_window = corr_cfg.get("time_window_seconds", 30)
@@ -103,36 +106,52 @@ class CorrelationEngine:
 
     def _process_queues(self):
         while self.running:
-            # Drain AI events
+            # Thu thập AI events và Sysmon events
+            new_ai_events = []
             while not self.ai_event_queue.empty():
                 try:
                     event = self.ai_event_queue.get_nowait()
-                    self.ai_window.append(event)
-
-                    sid = event.get("session_id", "")
-                    if sid:
-                        self.session_events.setdefault(sid, []).append(event)
-
+                    new_ai_events.append(event)
                     self._check_ai_event_anomalies(event)
                     self.ai_event_queue.task_done()
                 except queue.Empty:
                     break
 
-            # Drain Sysmon events
+            new_sysmon_events = []
             while not self.sysmon_queue.empty():
                 try:
                     event = self.sysmon_queue.get_nowait()
                     if event.get("EventID") in [1, 3, 11, 13, 22]:
-                        self.sysmon_window.append(event)
+                        new_sysmon_events.append(event)
                     self.sysmon_queue.task_done()
                 except queue.Empty:
                     break
 
             now = datetime.datetime.now(timezone.utc)
-            self.ai_window = self._clean_window(self.ai_window, now)
-            self.sysmon_window = self._clean_window(self.sysmon_window, now)
+            
+            # Cập nhật buffer dưới sự bảo vệ của Lock để tránh Race Condition
+            with self.buffer_lock:
+                for event in new_ai_events:
+                    self.ai_window.append(event)
+                    sid = event.get("session_id", "")
+                    if sid:
+                        self.session_events.setdefault(sid, []).append(event)
+                
+                for event in new_sysmon_events:
+                    self.sysmon_window.append(event)
 
-            self._correlate()
+                self.ai_window = self._clean_window(self.ai_window, now)
+                self.sysmon_window = self._clean_window(self.sysmon_window, now)
+
+            # Hàm _correlate bên trong đã đọc các biến, để tránh block quá lâu, 
+            # chúng ta có thể gọi _correlate đồng bộ, hoặc tự nó khóa khi cần. 
+            # Tuy nhiên, do _process_queues là thread duy nhất thực thi _correlate, 
+            # race condition chủ yếu xảy ra nếu có phương thức khác truy cập.
+            # Chúng ta sẽ đưa _correlate vào Lock nếu cần, nhưng ở đây
+            # chỉ cần khóa khi thao tác trên mảng buffer:
+            with self.buffer_lock:
+                self._correlate()
+                
             time.sleep(0.5)
 
     def _check_ai_event_anomalies(self, event: dict):
@@ -292,7 +311,9 @@ class CorrelationEngine:
 
     def get_session_chain(self, session_id: str) -> list:
         """Trả về events thuộc 1 session — phục vụ Dashboard vẽ Attack Chain."""
-        return self.session_events.get(session_id, [])
+        with self.buffer_lock:
+            # Trả về bản sao để tránh bị thay đổi trong quá trình duyệt bên ngoài
+            return list(self.session_events.get(session_id, []))
 
     def start(self):
         if self.running:

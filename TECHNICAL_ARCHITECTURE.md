@@ -738,7 +738,6 @@ AI_Runtime_Security/
 ├── web_dashboard.py                 # Standalone Web Dashboard Server
 ├── config.yaml                      # Cấu hình tập trung toàn hệ thống
 ├── config_loader.py                 # Đọc và map config
-├── edr_engine.log                   # Log file (tự tạo khi chạy)
 │
 ├── ai_telemetry/
 │   ├── ipc_server.py                # IPC Server (Named Pipe + TCP fallback)
@@ -787,6 +786,9 @@ AI_Runtime_Security/
 │
 ├── alert_queue/                     # Alert JSON files (runtime)
 ├── reports/                         # Incident Summary reports (runtime)
+├── logs/                            # Thư mục chứa log & data feed
+│   ├── dashboard_feed.jsonl         # Data stream cho Web Dashboard
+│   └── edr_engine.log               # Log hệ thống EDR
 ├── requirements.txt                 # Dependencies
 └── download_model.py                # Script tải model DeBERTa
 ```

@@ -179,6 +179,9 @@ AI_Runtime_Security/
 │
 ├── alert_queue/                     # Lưu trữ JSON các vụ CRITICAL offline
 ├── reports/                         # Báo cáo tổng hợp sự cố (RPT-INC)
+├── logs/                            # Thư mục chứa log & data feed
+│   ├── dashboard_feed.jsonl         # Data stream cho Web Dashboard
+│   └── edr_engine.log               # Log hệ thống EDR
 │
 └── attack_simulation/               # Công cụ Demo & Testing (8 kịch bản)
     ├── demo_runner.py               # Chạy kịch bản tự động
