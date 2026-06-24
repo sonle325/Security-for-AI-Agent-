@@ -25,8 +25,8 @@ Dự án kết hợp: giám sát Kernel-level (Sysmon), lưu vết Đồ thị T
        └────────┬────────┘
                 ▼
        ┌─────────────────┐
-       │  Detection      │   ← Risk Scoring (4 biến số)
-       │   Engine        │       Rule(20) + Process(20) + Net(20) + Corr(30)
+       │  Detection      │   ← Risk Scoring (5 biến số)
+       │   Engine        │       Rule(20) + Process(20) + Net(20) + Corr(30) + Monitor(10)
        └────────┬────────┘
                 │
        ┌────────┼────────┬──────────────┐
@@ -120,7 +120,7 @@ python attack_simulation/demo_runner.py --scenario 8   # Rò Rỉ Dữ Liệu (C
 ```
 [CorrelationEngine] [!] PHÁT HIỆN TIẾN TRÌNH CHẠY NGẦM ĐÁNG NGỜ!
 [DetectionEngine]   [!] CẢNH BÁO MỨC ĐỘ CRITICAL: INC-0001
-   [!] Công thức: Rule(20) + Process(20) + Net(20) + Corr(0) = 60 điểm
+   [!] Công thức: Rule(20) + Process(20) + Net(20) + Corr(0) + Monitor(0) = 60 điểm
 [ResponseEngine]    [+] ĐÃ TIÊU DIỆT THÀNH CÔNG TIẾN TRÌNH ĐỘC HẠI!
 [AI Analyzer]       [+] Threat Label: REMOTE CODE EXECUTION (Confidence: 97.1%)
 ```
