@@ -3,6 +3,11 @@ import logging
 import threading
 import json
 import os
+import sys
+
+# Đảm bảo import được config_loader
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config_loader
 from neo4j import GraphDatabase  # type: ignore
 from graph.neo4j_loader import Neo4jLoader
 
@@ -10,12 +15,13 @@ logger = logging.getLogger("EDR.Neo4j")
 
 
 class Neo4jIncidentGraph:
-    def __init__(self, action_queue: queue.Queue,
-                 uri="bolt://localhost:7687", user="neo4j", password="password"):
+    def __init__(self, action_queue: queue.Queue):
         self.action_queue = action_queue
-        self.uri = uri
-        self.user = user
-        self.password = password
+        
+        neo4j_cfg = config_loader.get("neo4j", default={})
+        self.uri = neo4j_cfg.get("uri", "bolt://localhost:7687")
+        self.user = neo4j_cfg.get("user", "neo4j")
+        self.password = neo4j_cfg.get("password", "password")
         self.driver = None
         self.running = False
         self.thread = None

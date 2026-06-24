@@ -33,8 +33,8 @@ class ContainmentEngine:
                 self.whitelist_images.append(item)
 
     def _is_whitelisted(self, image_name: str) -> bool:
-        import os
-        basename = os.path.basename(image_name).lower()
+        import ntpath
+        basename = ntpath.basename(image_name).lower()
         return basename in [w.lower() for w in self.whitelist_images]
 
     def _kill_process(self, pid: int, image_name: str):

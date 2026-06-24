@@ -2,15 +2,25 @@ import json
 import os
 import logging
 import threading
+import sys
 from collections import deque
 from http.server import HTTPServer, BaseHTTPRequestHandler
+
+# Đảm bảo import được config_loader
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import config_loader
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger("WebDashboard")
 
 _HTML_FILE = os.path.join(os.path.dirname(__file__), "graph", "dashboard.html")
 _FEED_FILE = os.path.join(os.path.dirname(__file__), "logs", "dashboard_feed.jsonl")
-MAX_INCIDENTS = 200
+
+# Lấy cấu hình từ config.yaml
+ports_cfg = config_loader.get("ports", default={})
+neo4j_cfg = config_loader.get("neo4j", default={})
+
+MAX_INCIDENTS = neo4j_cfg.get("max_incidents_cache", 200)
 
 def get_incidents():
     incidents = deque(maxlen=MAX_INCIDENTS)
@@ -79,4 +89,5 @@ def start_server(port=8888):
         logger.error("Khong khoi dong duoc Server (Port %d da bi chiem?): %s", port, e)
 
 if __name__ == "__main__":
-    start_server(8888)
+    port = ports_cfg.get("dashboard", 8888)
+    start_server(port)

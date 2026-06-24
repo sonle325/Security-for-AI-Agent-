@@ -41,8 +41,8 @@ class CorrelationEngine:
 
         # Whitelist IDE processes — tránh false positive khi IDE spawn shell
         self.whitelist_parent_images = config_loader.get("whitelist_parent_images", default=[
-            "antigravity", "language_server_windows", "code.exe", "cursor.exe",
-            "idea64.exe", "pycharm64.exe", "devenv.exe", "copilot"
+            "antigravity.exe", "language_server_windows_x64.exe", "code.exe", "cursor.exe",
+            "idea64.exe", "pycharm64.exe", "devenv.exe", "copilot.exe"
         ])
 
         self.critical_cmd_keywords = ["mimikatz", "nc.exe", "certutil", "-enc", "downloadstring"]
@@ -50,8 +50,9 @@ class CorrelationEngine:
     def _is_parent_whitelisted(self, parent_image: str) -> bool:
         if not parent_image:
             return False
-        # Sử dụng exact match bằng basename thay vì substring (tránh evil-code.exe)
-        parent_basename = os.path.basename(parent_image).lower()
+        import ntpath
+        # Sử dụng ntpath để đảm bảo luôn parse đúng Windows path kể cả khi chạy test trên Linux/Mac
+        parent_basename = ntpath.basename(parent_image).lower()
         return parent_basename in self.whitelist_parent_images
 
     def _is_keyword_in_string_literal(self, cmdline: str, keyword: str) -> bool:

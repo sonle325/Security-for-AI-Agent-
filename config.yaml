@@ -103,8 +103,8 @@ containment:
 # Nếu ParentImage chứa bất kỳ pattern nào dưới đây,
 # ORPHAN_SUSPICIOUS sẽ KHÔNG được tạo (trừ khi cmdline đặc biệt nguy hiểm).
 whitelist_parent_images:
-  - "antigravity"
-  - "language_server_windows"
+  - "antigravity.exe"
+  - "language_server_windows_x64.exe"
   - "code.exe"
   - "cursor.exe"
   - "idea64.exe"
@@ -113,8 +113,8 @@ whitelist_parent_images:
   - "rider64.exe"
   - "webstorm64.exe"
   - "goland64.exe"
-  - "copilot"
-  - "github desktop"
+  - "copilot.exe"
+  - "github desktop.exe"
 
 # --- Sysmon Listener ---
 sysmon:
