@@ -146,7 +146,7 @@ cat alert_queue/INC-0001.json
 
 ## Bảo Vệ Trước Các Câu Hỏi Phản Biện (Defense Architecture)
 Dự án được thiết kế kèm theo các luồng lập luận kiến trúc chặt chẽ để trả lời phản biện:
-1. **Lỗ hổng Substring Match & Dấu Nháy:** Sử dụng parser chuẩn (`shlex.split`) và Exact Match (`os.path.basename`) để chặn tuyệt đối các kỹ thuật chèn ký tự rác (escape character) và mạo danh tiến trình (`evil-code.exe`).
+1. **Lỗ hổng Substring Match & Dấu Nháy:** Sử dụng parser (`shlex.split(posix=False)`) và Exact Match (`os.path.basename`) để giảm thiểu false-positive và chặn mạo danh bề mặt (`evil-code.exe`). Tuy nhiên, để ngăn chặn triệt để kỹ thuật Process Spoofing (rename payload độc hại thành `code.exe`), hệ thống cần kết hợp thêm **Path Validation** hoặc **Authenticode Signature Verification** (Microsoft/Cursor) ở cấp độ Enterprise.
 2. **Chống Local Spoofing & DoS:** Tất cả hàng đợi (Queue) đều cấu hình `maxsize` cùng với mã xác thực Token cho kênh IPC nhằm chặn các hành vi gửi fake event hoặc spam event làm tràn RAM.
 3. **Vùng mù của Self-Reported SDK:** Chủ động ghi nhận việc AI Agent có thể từ chối gọi SDK nếu bị hack. Hướng giải quyết cấp Enterprise là sử dụng **Mandatory Hooking** (LSP proxy / eBPF) thay thế.
 4. **Giới hạn của mô hình NLP:** Mô hình Zero-shot DeBERTa chỉ được định vị làm nhiệm vụ **Enrichment & Explainability** (chạy async giải thích sự cố), hoàn toàn **KHÔNG** tham gia vào việc ra quyết định Containment (tiêu diệt tiến trình). Việc ra quyết định thuộc về tập Deterministic Rules siêu tốc độ.

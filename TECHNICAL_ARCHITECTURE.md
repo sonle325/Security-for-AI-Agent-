@@ -821,6 +821,7 @@ pyyaml              # Config file parser
 | Giới hạn | Mức độ | Hướng khắc phục |
 |---|:---:|---|
 | Chưa tích hợp API nội bộ Cursor | Cao | Bắt buộc chuyển sang Mandatory Hooking (LSP Proxy / eBPF) thay vì dùng SDK tự báo cáo. (Xem chi tiết bên dưới) |
+| Lỗ hổng Process Spoofing (Rename Malware) | Cao | Yêu cầu thêm Path Validation (chỉ cho phép `C:\Program Files\...`) hoặc Authenticode Signature Verification để xác thực binary thật. |
 | Chỉ hỗ trợ Windows | Cao | Linux: eBPF collector thay Sysmon |
 | Không bảo vệ kernel-level threats | Thấp | Ngoài scope (EDR userspace) |
 | Telemetry plaintext qua IPC | Trung bình | TLS/HMAC cho Named Pipe channel chống Local Spoofing |
@@ -837,6 +838,7 @@ pyyaml              # Config file parser
 | Hạng mục | Mô tả | Độ ưu tiên |
 |---|---|:---:|
 | Native Cursor/Copilot Integration | Hook qua Extension API, LSP proxy | P0 |
+| Process Binary Verification | Verify Authenticode Signature / Path thay vì chỉ check basename | P0 |
 | Multi-Agent Telemetry | Agent federation, cross-session tracking | P1 |
 | Linux eBPF Collector | Thay thế Sysmon trên Linux | P1 |
 | LLM Investigation Assistant | Chatbot điều tra sự cố tự động tích hợp LLM | P2 |
