@@ -4,45 +4,34 @@ from typing import Dict, Any, List, Tuple
 
 
 class PromptMonitor:
-    """Phát hiện Prompt Injection trong nội dung prompt của AI Agent."""
+    """Phát hiện Prompt Injection trong prompt của AI Agent."""
 
-    # (tên pattern, regex, trọng số rủi ro)
+    # (pattern_name, regex, weight)
     INJECTION_PATTERNS: List[Tuple[str, str, int]] = [
-        # Ghi đè chỉ thị gốc
         ("instruction_override",
          r"(?i)(ignore|disregard|forget|override|bypass)\s+(all\s+)?(previous|prior|above|earlier|original)\s+(instructions?|rules?|guidelines?|prompts?)",
          30),
         ("instruction_override_v2",
          r"(?i)do\s+not\s+follow\s+(any\s+)?(previous|prior|original)\s+(instructions?|rules?)",
          30),
-
-        # Chiếm quyền vai trò
         ("role_hijack",
          r"(?i)you\s+are\s+now\s+(a|an|the|in)?\s*(hacker|attacker|evil|malicious|unrestricted|DAN|jailbroken|developer\s+mode)",
          35),
         ("role_hijack_v2",
          r"(?i)(pretend|act|behave|assume)\s+(you\s+are|to\s+be|as\s+if)\s+(a\s+)?(hacker|unrestricted|without\s+limits)",
          35),
-
-        # Jailbreak
         ("jailbreak",
          r"(?i)(DAN\s+mode|do\s+anything\s+now|jailbreak|jail\s*break|developer\s+mode\s+enabled)",
          40),
         ("prompt_leak",
          r"(?i)(show|reveal|print|output|display)\s+(your\s+)?(system\s+prompt|initial\s+instructions?|hidden\s+instructions?)",
          25),
-
-        # System Override
         ("system_override",
          r"(?i)\[?\s*(SYSTEM\s+OVERRIDE|ADMIN\s+MODE|ROOT\s+ACCESS|DIAGNOSTIC\s+MODE)\s*\]?",
          40),
-
-        # Yêu cầu thực thi lệnh
         ("cmd_execution",
          r"(?i)(execute|run|invoke|call|spawn)\s+(the\s+)?(following\s+)?(command|script|code|shell|terminal|powershell|bash)",
          25),
-
-        # Exfil qua prompt
         ("data_exfil_prompt",
          r"(?i)(send|post|upload|exfiltrate|transmit)\s+(all\s+)?(data|files?|content|credentials?|secrets?|keys?)\s+(to|via|through)\s+(http|ftp|webhook|api)",
          35),
@@ -55,7 +44,7 @@ class PromptMonitor:
         ]
 
     def analyze(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        """Phân tích prompt, trả về event đã enrich trường prompt_analysis."""
+        """Quét prompt, enrich event với trường prompt_analysis."""
         content = event.get("content", "") or event.get("prompt", "") or ""
         if not content:
             event["prompt_analysis"] = {"is_injection": False, "injection_score": 0, "risk_level": "NONE", "matched_patterns": []}

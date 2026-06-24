@@ -7,16 +7,9 @@ class Neo4jLoader:
 
     CYPHER_OUTPUT_FILE = "incident_graph_queries.cypher"
 
-    # Schema mở rộng:
-    # (Session)<-[:BELONGS_TO]-(Incident)-[:EXECUTED]->(Process)
-    #                             |  ^                   |
-    #                 (PromptEvent)  |             (NetworkConn)
-    #                                |                   |
-    #               (AIAgent)-[:TRIGGERED]         (Endpoint)
-
     @staticmethod
     def build_merge_query(incident: Dict[str, Any]) -> tuple:
-        """Xây dựng Cypher MERGE query từ dữ liệu Incident. Returns (query, params)."""
+        """Xây dựng Cypher MERGE query từ incident data. Returns (query, params)."""
         ai_event  = incident.get("ai_event", {})
         sys_event = incident.get("sysmon_event", {})
         inc_type  = incident.get("incident_type", "CORRELATED")
@@ -36,7 +29,6 @@ class Neo4jLoader:
         MERGE (i)-[:OCCURRED_ON]->(e)
         """
 
-        # Thêm node Process nếu có sysmon event
         if sys_event.get("Image"):
             query += """
         MERGE (p:Process {pid: $pid, image: $image})
@@ -47,7 +39,6 @@ class Neo4jLoader:
         MERGE (p)-[:RAN_ON]->(e)
             """
 
-        # Thêm node PromptEvent nếu có prompt_analysis
         if incident.get("prompt_analysis"):
             query += """
         MERGE (pr:PromptEvent {incident_id: $inc_id})
@@ -57,14 +48,12 @@ class Neo4jLoader:
         MERGE (i)-[:CONTAINS_PROMPT]->(pr)
             """
 
-        # Thêm NetworkConn nếu là Event ID 3
         if sys_event.get("EventID") == 3:
             query += """
         MERGE (n:NetworkConn {dest_ip: $dest_ip, dest_port: $dest_port})
         MERGE (i)-[:NETWORK_ACTIVITY]->(n)
             """
 
-        # Thêm RegistryKey nếu là Event ID 13
         if sys_event.get("EventID") == 13:
             query += """
         MERGE (r:RegistryKey {path: $reg_path})
@@ -72,7 +61,6 @@ class Neo4jLoader:
         MERGE (i)-[:MODIFIED_REGISTRY]->(r)
             """
 
-        # Thêm Session node
         session_id = ai_event.get("session_id")
         if session_id:
             query += """
@@ -94,14 +82,11 @@ class Neo4jLoader:
             "cmdline":  sys_event.get("CommandLine", ""),
             "sys_time": sys_event.get("TimestampUTC", ""),
             "event_id": str(sys_event.get("EventID", "")),
-            # Prompt analysis
             "inj_score":    prompt_analysis.get("injection_score", 0),
             "inj_risk":     prompt_analysis.get("risk_level", "NONE"),
             "inj_patterns": ", ".join(prompt_analysis.get("matched_patterns", [])),
-            # Network
             "dest_ip":   sys_event.get("DestinationIp", ""),
             "dest_port": str(sys_event.get("DestinationPort", "")),
-            # Registry
             "reg_path":    sys_event.get("TargetObject", ""),
             "reg_details": sys_event.get("Details", ""),
             "session_id":  ai_event.get("session_id", ""),
@@ -111,7 +96,6 @@ class Neo4jLoader:
 
     @staticmethod
     def execute(driver, incident: Dict[str, Any]) -> bool:
-        """Thực thi Cypher query lên Neo4j. Returns True nếu thành công."""
         if driver is None:
             return False
         query, params = Neo4jLoader.build_merge_query(incident)
@@ -125,7 +109,7 @@ class Neo4jLoader:
 
     @staticmethod
     def export_cypher(incident: Dict[str, Any], output_path: Optional[str] = None):
-        """Xuất Cypher query ra file .cypher khi Neo4j offline (MOCK MODE)."""
+        """Xuất Cypher ra file khi Neo4j offline."""
         if output_path is None:
             output_path = Neo4jLoader.CYPHER_OUTPUT_FILE
 

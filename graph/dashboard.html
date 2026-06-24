@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>AI Runtime Security — Incident Dashboard</title>
+<meta name="description" content="AI Runtime Security EDR - Incident Graph Dashboard for SOC Investigation">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
@@ -76,7 +77,19 @@
     background: #388bfd22; border-color: #388bfd; color: #58a6ff;
   }
 
-  .main { display: flex; height: calc(100vh - 200px); }
+  /* Tab bar */
+  .tab-bar {
+    display: flex; gap: 0; border-bottom: 1px solid #30363d; background: #161b22;
+  }
+  .tab-btn {
+    padding: 8px 18px; font-size: 12px; cursor: pointer;
+    color: #8b949e; border: none; background: transparent;
+    border-bottom: 2px solid transparent; transition: all .15s;
+  }
+  .tab-btn:hover { color: #c9d1d9; }
+  .tab-btn.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+
+  .main { display: flex; height: calc(100vh - 230px); }
 
   .list-panel {
     width: 400px; border-right: 1px solid #30363d;
@@ -97,6 +110,7 @@
   .inc-id { font-size: 12px; font-weight: 600; color: #58a6ff; }
   .inc-type { font-size: 11px; color: #8b949e; margin-top: 2px; }
   .inc-ts { font-size: 11px; color: #6e7681; margin-top: 2px; }
+  .inc-session { font-size: 10px; color: #6e7681; font-family: monospace; }
 
   .sev-badge {
     display: inline-block; padding: 1px 7px; border-radius: 10px;
@@ -130,9 +144,54 @@
   .node-Endpoint    circle { fill: #d29922; stroke: #d2992266; stroke-width: 2; }
   .node-PromptEvent circle { fill: #bc8cff; stroke: #bc8cff66; stroke-width: 2; }
   .node-NetworkConn circle { fill: #f78166; stroke: #f7816666; stroke-width: 2; }
+  .node-ToolAnomaly circle { fill: #f78166; stroke: #f7816666; stroke-width: 2; }
+  .node-DataLeak    circle { fill: #d29922; stroke: #d2992266; stroke-width: 2; }
   .node-label { fill: #c9d1d9; font-size: 10px; text-anchor: middle; pointer-events: none; }
   .edge-line  { stroke: #30363d; stroke-width: 1.5; marker-end: url(#arrow); }
   .edge-label { fill: #6e7681; font-size: 9px; text-anchor: middle; }
+
+  /* Timeline */
+  #timeline-container {
+    flex: 1; position: relative; overflow-y: auto; overflow-x: hidden;
+    background: #0d1117; padding: 20px; display: none;
+  }
+  .tl-title { font-size: 14px; color: #f0f6fc; font-weight: 600; margin-bottom: 16px; }
+  .tl-item {
+    display: flex; gap: 14px; margin-bottom: 6px; position: relative;
+  }
+  .tl-dot {
+    width: 12px; height: 12px; border-radius: 50%;
+    flex-shrink: 0; margin-top: 4px; position: relative; z-index: 1;
+  }
+  .tl-line {
+    position: absolute; left: 5px; top: 16px; width: 2px;
+    background: #30363d; height: calc(100% + 6px);
+  }
+  .tl-item:last-child .tl-line { display: none; }
+  .tl-content { flex: 1; }
+  .tl-time { font-size: 10px; color: #6e7681; font-family: monospace; }
+  .tl-label { font-size: 12px; color: #c9d1d9; margin-top: 2px; }
+  .tl-detail { font-size: 11px; color: #8b949e; margin-top: 1px; }
+  .dot-CRITICAL { background: #f85149; box-shadow: 0 0 6px #f8514988; }
+  .dot-HIGH     { background: #d29922; box-shadow: 0 0 6px #d2992288; }
+  .dot-MEDIUM   { background: #58a6ff; }
+  .dot-LOW      { background: #3fb950; }
+
+  /* Attack Chain */
+  #chain-container {
+    flex: 1; position: relative; overflow-y: auto;
+    background: #0d1117; padding: 20px; display: none;
+  }
+  .chain-title { font-size: 14px; color: #f0f6fc; font-weight: 600; margin-bottom: 16px; }
+  .chain-node {
+    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
+    padding: 10px 14px; margin-bottom: 4px; position: relative;
+  }
+  .chain-node .cn-id { color: #58a6ff; font-weight: 600; font-size: 12px; }
+  .chain-node .cn-type { color: #8b949e; font-size: 11px; }
+  .chain-node .cn-action { color: #c9d1d9; font-size: 11px; margin-top: 2px; }
+  .chain-arrow { text-align: center; color: #30363d; font-size: 18px; line-height: 1; }
+  .chain-empty { color: #6e7681; font-size: 12px; text-align: center; padding: 30px; }
 
   .detail-panel {
     height: 190px; border-top: 1px solid #30363d;
@@ -191,6 +250,12 @@
   <button onclick="setFilter('ORPHAN_SUSPICIOUS', this)">Suspicious</button>
 </div>
 
+<div class="tab-bar">
+  <button class="tab-btn active" onclick="switchTab('graph', this)">🕸️ Incident Graph</button>
+  <button class="tab-btn" onclick="switchTab('timeline', this)">📊 Timeline</button>
+  <button class="tab-btn" onclick="switchTab('chain', this)">⛓️ Attack Chain</button>
+</div>
+
 <div class="main">
   <div class="list-panel">
     <h2>Incidents (<span id="list-count">0</span>)</h2>
@@ -212,6 +277,10 @@
         <div>Chọn Incident để xem đồ thị</div>
       </div>
     </div>
+
+    <div id="timeline-container"></div>
+    <div id="chain-container"></div>
+
     <div class="detail-panel" id="detail-panel">
       <div style="color:#6e7681">Chọn một Incident để xem chi tiết...</div>
     </div>
@@ -222,6 +291,7 @@
 let allIncidents = [];
 let selectedId   = null;
 let currentFilter = 'ALL';
+let currentTab    = 'graph';
 
 const TYPE_LABEL = {
   PROMPT_INJECTION: '💉 Prompt Injection',
@@ -230,6 +300,16 @@ const TYPE_LABEL = {
   CORRELATED:       '🔗 Correlated',
   ORPHAN_SUSPICIOUS:'⚠️ Suspicious',
 };
+
+function switchTab(tab, btn) {
+  currentTab = tab;
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  document.getElementById('graph-container').style.display   = tab === 'graph'    ? '' : 'none';
+  document.getElementById('timeline-container').style.display = tab === 'timeline' ? 'block' : 'none';
+  document.getElementById('chain-container').style.display    = tab === 'chain'    ? 'block' : 'none';
+  if (selectedId) select(selectedId);
+}
 
 function setFilter(f, btn) {
   currentFilter = f;
@@ -254,6 +334,7 @@ function renderList() {
     div.className = 'incident-item' + (inc.id === selectedId ? ' selected' : '');
     div.onclick = () => select(inc.id);
     const ts = inc.timestamp ? new Date(inc.timestamp).toLocaleTimeString('vi-VN') : '--';
+    const sid = inc.session_id ? `<div class="inc-session">🔗 ${inc.session_id}</div>` : '';
     div.innerHTML = `
       <div style="display:flex;justify-content:space-between;align-items:center">
         <span class="inc-id">${inc.id}</span>
@@ -261,6 +342,7 @@ function renderList() {
       </div>
       <div class="inc-type">${TYPE_LABEL[inc.type] || inc.type}</div>
       <div class="inc-ts">🤖 ${inc.agent} · ${ts}</div>
+      ${sid}
     `;
     container.appendChild(div);
   });
@@ -272,7 +354,9 @@ function select(id) {
   if (!inc) return;
   renderList();
   document.getElementById('empty-msg').style.display = 'none';
-  drawGraph(inc);
+  if (currentTab === 'graph')    drawGraph(inc);
+  if (currentTab === 'timeline') drawTimeline(inc);
+  if (currentTab === 'chain')    drawChain(inc);
   showDetail(inc);
 }
 
@@ -297,6 +381,7 @@ function showDetail(inc) {
     rows.map(([k,v]) => `<div class="kv"><span class="k">${k}</span><span class="v">${v}</span></div>`).join('');
 }
 
+/* ==================== GRAPH ==================== */
 function drawGraph(inc) {
   const root = document.getElementById('graph-root');
   const svg  = document.getElementById('graph');
@@ -309,8 +394,10 @@ function drawGraph(inc) {
     { id:'agent',    type:'AIAgent',   label: inc.agent || 'Agent', r:28, x:cx-220,   y:cy-80    },
     { id:'endpoint', type:'Endpoint',  label: 'Endpoint',           r:24, x:cx+220,   y:cy-80    },
   ];
-  if (inc.process)       nodes.push({ id:'process', type:'Process',     label:(inc.process.split('\\').pop()||'').substring(0,15), r:24, x:cx,      y:cy+160 });
-  if (inc.prompt_score > 0) nodes.push({ id:'prompt', type:'PromptEvent', label:`Prompt\n${inc.prompt_risk}`, r:22, x:cx-200, y:cy+120 });
+  if (inc.process)        nodes.push({ id:'process', type:'Process',     label:(inc.process.split('\\').pop()||'').substring(0,15), r:24, x:cx+60,   y:cy+160 });
+  if (inc.prompt_score>0) nodes.push({ id:'prompt',  type:'PromptEvent', label:`Prompt\n${inc.prompt_risk}`, r:22, x:cx-200, y:cy+120 });
+  if (inc.tool_risk && inc.tool_risk !== '—') nodes.push({ id:'tool', type:'ToolAnomaly', label:`Tool\n${inc.tool_risk}`, r:22, x:cx-60, y:cy+160 });
+  if (inc.data_risk && inc.data_risk !== '—') nodes.push({ id:'data', type:'DataLeak', label:`Data\n${inc.data_risk}`, r:22, x:cx+180, y:cy+140 });
 
   const edges = [
     { from:'agent', to:'incident', label:'TRIGGERED' },
@@ -318,6 +405,8 @@ function drawGraph(inc) {
   ];
   if (inc.process)        edges.push({ from:'incident', to:'process', label:'EXECUTED' });
   if (inc.prompt_score>0) edges.push({ from:'incident', to:'prompt',  label:'PROMPT'   });
+  if (inc.tool_risk && inc.tool_risk !== '—') edges.push({ from:'incident', to:'tool', label:'TOOL' });
+  if (inc.data_risk && inc.data_risk !== '—') edges.push({ from:'incident', to:'data', label:'LEAK' });
 
   const nodeMap = Object.fromEntries(nodes.map(n => [n.id, n]));
 
@@ -326,7 +415,7 @@ function drawGraph(inc) {
     const s = nodeMap[e.from], d = nodeMap[e.to];
     if (!s || !d) return;
     const dx = d.x - s.x, dy = d.y - s.y;
-    const len = Math.sqrt(dx*dx+dy*dy);
+    const len = Math.sqrt(dx*dx+dy*dy) || 1;
     const ux = dx/len, uy = dy/len;
     const x1 = s.x+ux*s.r, y1 = s.y+uy*s.r;
     const x2 = d.x-ux*(d.r+8), y2 = d.y-uy*(d.r+8);
@@ -374,6 +463,92 @@ function drawGraph(inc) {
   });
 }
 
+/* ==================== TIMELINE ==================== */
+function drawTimeline(inc) {
+  const container = document.getElementById('timeline-container');
+
+  // Tìm tất cả incidents cùng session
+  const sessionId = inc.session_id;
+  let chain;
+  if (sessionId) {
+    chain = allIncidents.filter(i => i.session_id === sessionId)
+      .sort((a,b) => new Date(a.timestamp||0) - new Date(b.timestamp||0));
+  } else {
+    chain = [inc];
+  }
+
+  let html = `<div class="tl-title">📊 Timeline ${sessionId ? `(Session: ${sessionId})` : `(${inc.id})`} — ${chain.length} event(s)</div>`;
+
+  chain.forEach((item, idx) => {
+    const ts = item.timestamp ? new Date(item.timestamp).toLocaleTimeString('vi-VN', {hour:'2-digit',minute:'2-digit',second:'2-digit',fractionalSecondDigits:3}) : '--';
+    const dotCls = `dot-${item.severity || 'LOW'}`;
+    const typeLabel = TYPE_LABEL[item.type] || item.type;
+    const cmdPreview = item.cmdline ? item.cmdline.substring(0, 80) + (item.cmdline.length > 80 ? '...' : '') : '';
+    const isSelected = item.id === inc.id ? 'border-left: 3px solid #58a6ff;' : '';
+    html += `
+      <div class="tl-item" style="${isSelected}">
+        <div style="position:relative">
+          <div class="tl-dot ${dotCls}"></div>
+          <div class="tl-line"></div>
+        </div>
+        <div class="tl-content">
+          <div class="tl-time">${ts}</div>
+          <div class="tl-label">
+            <span class="sev-badge sev-${item.severity||''}">${item.severity||'?'}</span>
+            ${item.id} — ${typeLabel}
+          </div>
+          <div class="tl-detail">🤖 ${item.agent} → ${item.action || 'N/A'}</div>
+          ${cmdPreview ? `<div class="tl-detail" style="color:#6e7681;font-family:monospace;font-size:10px">$ ${cmdPreview}</div>` : ''}
+        </div>
+      </div>
+    `;
+  });
+
+  container.innerHTML = html;
+}
+
+/* ==================== ATTACK CHAIN ==================== */
+function drawChain(inc) {
+  const container = document.getElementById('chain-container');
+  const sessionId = inc.session_id;
+
+  if (!sessionId) {
+    container.innerHTML = `
+      <div class="chain-title">⛓️ Attack Chain</div>
+      <div class="chain-empty">Incident này không có Session ID.<br>Attack Chain chỉ khả dụng khi incidents được gửi qua SDK Client với cùng session.</div>
+    `;
+    return;
+  }
+
+  const chain = allIncidents.filter(i => i.session_id === sessionId)
+    .sort((a,b) => new Date(a.timestamp||0) - new Date(b.timestamp||0));
+
+  let html = `<div class="chain-title">⛓️ Attack Chain — Session: ${sessionId} (${chain.length} steps)</div>`;
+
+  chain.forEach((item, idx) => {
+    const typeLabel = TYPE_LABEL[item.type] || item.type;
+    const isSelected = item.id === inc.id ? 'border-color: #58a6ff;' : '';
+    const ts = item.timestamp ? new Date(item.timestamp).toLocaleTimeString('vi-VN') : '';
+
+    html += `
+      <div class="chain-node" style="${isSelected}" onclick="select('${item.id}')">
+        <div style="display:flex;justify-content:space-between;align-items:center">
+          <span class="cn-id">${item.id}</span>
+          <span class="sev-badge sev-${item.severity||''}">${item.severity||'?'}</span>
+        </div>
+        <div class="cn-type">${typeLabel} · ${ts}</div>
+        <div class="cn-action">🤖 ${item.agent} → ${item.action || 'N/A'}</div>
+      </div>
+    `;
+    if (idx < chain.length - 1) {
+      html += `<div class="chain-arrow">↓</div>`;
+    }
+  });
+
+  container.innerHTML = html;
+}
+
+/* ==================== STATS & FETCH ==================== */
 function updateStats(data) {
   document.getElementById('s-total').textContent  = data.length;
   document.getElementById('s-crit').textContent   = data.filter(i=>i.severity==='CRITICAL').length;

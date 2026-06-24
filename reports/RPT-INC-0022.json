@@ -1,0 +1,65 @@
+{
+    "report_id": "RPT-INC-0022",
+    "generated_at": "2026-06-24T04:36:09.019270+00:00",
+    "incident_id": "INC-0022",
+    "severity": "MEDIUM",
+    "intent_space": {
+        "ai_agent": "Cursor",
+        "action": "tool_invocation",
+        "tool": "file_read",
+        "timestamp": "2026-06-24T04:36:07.753774+00:00",
+        "session_id": "session-874eab7a"
+    },
+    "action_space": {
+        "process": "",
+        "pid": "",
+        "parent": "",
+        "parent_pid": "",
+        "cmdline": "",
+        "event_time": "",
+        "event_id": ""
+    },
+    "analysis": {
+        "matched_rules": [],
+        "nlp_threat_label": "credential access",
+        "attack_type": "Credential Access",
+        "ai_classifications": [
+            {
+                "text_preview": "tool_invocation using file_read",
+                "top_label": "credential access",
+                "top_score": 0.9749729037284851,
+                "all_labels": {
+                    "credential access": 0.9749729037284851,
+                    "privilege escalation": 0.006248210556805134,
+                    "system discovery": 0.0050687226466834545,
+                    "remote code execution": 0.003806068329140544,
+                    "prompt injection": 0.002972405171021819,
+                    "benign task": 0.0029612951911985874,
+                    "lateral movement": 0.0022035122383385897,
+                    "data exfiltration": 0.001766799483448267
+                },
+                "source": "ai_action"
+            }
+        ]
+    },
+    "monitor_analysis": {
+        "prompt_injection": {},
+        "tool_anomaly": {
+            "has_anomaly": true,
+            "risk_score": 40,
+            "risk_level": "HIGH",
+            "anomalies": [
+                {
+                    "type": "SENSITIVE_FILE_ACCESS",
+                    "detail": "/home/user/.ssh/id_rsa (matched: id_rsa)"
+                }
+            ],
+            "analyzed_at": "2026-06-24T04:36:07.753973+00:00"
+        },
+        "data_disclosure": {}
+    },
+    "response": {
+        "action_taken": "MONITOR",
+        "status": "OBSERVED"
+    }
+}

@@ -1,65 +1,62 @@
 import queue
 import threading
+import logging
 import psutil
+import config_loader
+
+logger = logging.getLogger("EDR.Containment")
+
 
 class ContainmentEngine:
-    def __init__(self, action_queue: queue.Queue, mode: str = "CONTAIN"):
+    def __init__(self, action_queue: queue.Queue, mode: str = None):
         self.action_queue = action_queue
-        self.mode = mode.upper() # "ALERT" hoặc "CONTAIN"
         self.running = False
         self.thread = None
-        
-        # Khóa an toàn (Fail-Safe Lock) cho các thao tác tác động hệ thống
+
+        cont_cfg = config_loader.get("containment", default={})
+        self.mode = (mode or cont_cfg.get("mode", "CONTAIN")).upper()
+
         self.action_lock = threading.Lock()
-        
-        # Whitelist (Safe-list) các tiến trình KHÔNG BAO GIỜ bị EDR chém
-        # Dù cho ML/Rules có nhận diện nhầm, hệ thống vẫn an toàn.
-        self.whitelist_images = [
-            "code.exe", 
-            "cursor.exe", 
-            "explorer.exe", 
-            "svchost.exe",
-            "system",
-            "smss.exe",
-            "csrss.exe",
-            "wininit.exe",
-            "services.exe",
-            "lsass.exe",
-            "winlogon.exe"
-        ]
+
+        # Whitelist — tiến trình KHÔNG BAO GIỜ bị kill dù ML detect nhầm
+        self.whitelist_images = cont_cfg.get("whitelist_processes", [
+            "code.exe", "cursor.exe", "explorer.exe", "svchost.exe",
+            "system", "smss.exe", "csrss.exe", "wininit.exe",
+            "services.exe", "lsass.exe", "winlogon.exe",
+            "python.exe", "pythonw.exe", "conhost.exe"
+        ])
+
+        # Merge thêm từ whitelist_parent_images (bảo vệ IDE)
+        parent_wl = config_loader.get("whitelist_parent_images", default=[])
+        for item in parent_wl:
+            if item not in self.whitelist_images:
+                self.whitelist_images.append(item)
 
     def _is_whitelisted(self, image_name: str) -> bool:
         img_lower = image_name.lower()
-        for safe_img in self.whitelist_images:
-            if safe_img in img_lower:
-                return True
-        return False
+        return any(safe in img_lower for safe in self.whitelist_images)
 
     def _kill_process(self, pid: int, image_name: str):
         if self.mode == "ALERT":
-            print(f"\n[ResponseEngine] [!] [MODE: ALERT] Bỏ qua diệt PID {pid} ({image_name}) do đang ở chế độ Monitor-only.")
+            logger.info("[MODE: ALERT] Skipped terminating PID %d (%s) - Monitor-only mode.", pid, image_name)
             return
 
-        # Kiểm tra Fallback an toàn trước khi hành động
         if self._is_whitelisted(image_name):
-            print(f"\n[ResponseEngine] [!] FAIL-SAFE KÍCH HOẠT: Từ chối tiêu diệt tiến trình an toàn: {image_name} (PID: {pid}).")
+            logger.warning("FAIL-SAFE: Từ chối kill tiến trình an toàn: %s (PID: %d).", image_name, pid)
             return
 
-        # Sử dụng try...finally với threading.Lock() để đảm bảo
-        # không bao giờ bị treo (deadlock) nếu psutil bị crash giữa chừng
+        # Lock để tránh race condition + deadlock nếu psutil crash
         self.action_lock.acquire()
         try:
             p = psutil.Process(pid)
             p.terminate()
-            print(f"\n[ResponseEngine] [+] ĐÃ TIÊU DIỆT THÀNH CÔNG TIẾN TRÌNH ĐỘC HẠI!")
-            print(f"   [+] PID: {pid} ({image_name})")
-            print(f"   [+] AI IDE/Agent vẫn an toàn, chỉ luồng thực thi phụ bị chặn đứng.")
+            logger.info("Terminated PID: %d (%s)", pid, image_name)
         except psutil.NoSuchProcess:
-            print(f"\n[ResponseEngine] [*] Tiến trình PID {pid} đã tự kết thúc trước khi bị chém.")
+            logger.info("Process PID %d already exited.", pid)
         except psutil.AccessDenied:
-            print(f"\n[ResponseEngine] [-] Lỗi: Access Denied. Không đủ quyền chém PID {pid} (Cần quyền Admin / SYSTEM).")
+            logger.error("Access Denied khi kill PID %d (cần quyền Admin).", pid)
         except Exception as e:
-            print(f"\n[ResponseEngine] [-] Lỗi không xác định khi tiêu diệt tiến trình {pid}: {e}")
+            logger.error("Lỗi kill process %d: %s", pid, e)
         finally:
             self.action_lock.release()
 
@@ -70,21 +67,19 @@ class ContainmentEngine:
                 sysmon_event = incident.get("sysmon_event", {})
                 pid_str = sysmon_event.get("ProcessId")
                 image = sysmon_event.get("Image", "Unknown")
-                
-                if pid_str:
-                    print(f"\n[ResponseEngine] [*] RA QUYẾT ĐỊNH CONTAINMENT CHO {incident['incident_id']}...")
+
+                if pid_str and incident.get("severity") == "CRITICAL":
+                    logger.info("Evaluating containment for incident %s...", incident['incident_id'])
                     try:
-                        pid = int(pid_str)
-                        self._kill_process(pid, image)
+                        self._kill_process(int(pid_str), image)
                     except ValueError:
                         pass
-                        
+
                 self.action_queue.task_done()
             except queue.Empty:
                 pass
             except Exception as e:
-                # Catch-all để đảm bảo thread không bị chết
-                print(f"[ResponseEngine] Lỗi trong _process_queue: {e}")
+                logger.error("Lỗi trong _process_queue: %s", e)
 
     def start(self):
         if self.running:

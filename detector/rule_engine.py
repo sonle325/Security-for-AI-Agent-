@@ -2,7 +2,12 @@ import queue
 import threading
 import json
 import os
+import logging
 from detector.risk_scoring import RiskScoringEngine
+import config_loader
+
+logger = logging.getLogger("EDR.Detection")
+
 
 class DetectionEngine:
     def __init__(self, incident_queue: queue.Queue, action_queue: queue.Queue):
@@ -10,54 +15,60 @@ class DetectionEngine:
         self.action_queue = action_queue
         self.running = False
         self.thread = None
-        
-        # Tạo thư mục alert_queue theo đúng thiết kế
-        os.makedirs("alert_queue", exist_ok=True)
-        
-        # Danh sách từ khóa đặc trưng của Prompt Injection / RCE Payload
-        self.dangerous_keywords = ["curl", "wget", "iex", "invoke-webrequest", "payload", "nc.exe"]
-        
-        # Danh sách trắng (Allowlist) để chống chém nhầm (False Positive)
-        self.allowed_domains = ["github.com", "viettel.com.vn", "localhost", "127.0.0.1", "pypi.org", "npm"]
-        
+
+        det_cfg = config_loader.get("detection", default={})
+        alert_cfg = config_loader.get("alert_queue", default={})
+
+        self.alert_dir = alert_cfg.get("directory", "alert_queue")
+        os.makedirs(self.alert_dir, exist_ok=True)
+
+        self.dangerous_keywords = det_cfg.get("dangerous_keywords", [
+            "curl", "wget", "iex", "invoke-webrequest", "payload", "nc.exe"
+        ])
+
+        # Allowlist domain — lệnh truy cập domain này sẽ không bị flag
+        self.allowed_domains = det_cfg.get("allowed_domains", [
+            "github.com", "viettel.com.vn", "localhost", "127.0.0.1", "pypi.org", "npm"
+        ])
+
         self.risk_scorer = RiskScoringEngine()
 
     def _evaluate_risk(self, incident):
         sysmon_event = incident.get("sysmon_event", {})
         cmdline = sysmon_event.get("CommandLine", "").lower()
-        
-        # 1. Kiểm tra Allowlist trước
+
         for domain in self.allowed_domains:
             if domain in cmdline:
                 incident["severity"] = "LOW"
-                print(f"\n[DetectionEngine] [*] Bỏ qua vì dính Allowlist ({domain}). (Lệnh nội bộ/Hợp lệ).")
+                logger.info("Skipped due to allowlist match: %s", domain)
                 return
 
-        # 2. Quét mã độc theo công thức Risk Scoring
         ai_event = incident.get("ai_event", {})
         image = sysmon_event.get("Image", "").lower()
-        
+
         score, severity, matched_rules, details = self.risk_scorer.evaluate(
             incident, cmdline, image, ai_event, self.dangerous_keywords
         )
-                
+
         if severity == "CRITICAL":
             incident["severity"] = "CRITICAL"
             incident["matched_rules"] = matched_rules
-            print(f"\n[DetectionEngine] [!] CẢNH BÁO MỨC ĐỘ CRITICAL: {incident['incident_id']}")
-            print(f"   [!] Công thức: Rule({details['rule']}) + Process({details['process']}) + Net({details['network']}) + Corr({details['correlation']}) = {score} điểm")
-            print(f"   [!] Dấu hiệu: {', '.join(matched_rules)}")
-            print(f"   [!] CommandLine: {cmdline}")
-            # Ghi log ra file JSON đúng chuẩn yêu cầu
-            filepath = os.path.join("alert_queue", f"{incident['incident_id']}.json")
+            logger.warning("CẢNH BÁO MỨC ĐỘ CRITICAL: %s", incident['incident_id'])
+            logger.warning("   Công thức: Rule(%d) + Process(%d) + Net(%d) + Corr(%d) + Monitor(%d) = %d điểm",
+                         details['rule'], details['process'], details['network'],
+                         details['correlation'], details.get('monitor_bonus', 0), score)
+            logger.warning("   Dấu hiệu: %s", ', '.join(matched_rules))
+            logger.warning("   CommandLine: %s", cmdline)
+
+            filepath = os.path.join(self.alert_dir, f"{incident['incident_id']}.json")
             with open(filepath, "w", encoding="utf-8") as f:
-                json.dump(incident, f, indent=4)
-                
-            # Đẩy sang Response Engine để chém
-            self.action_queue.put(incident)
+                json.dump(incident, f, indent=4, ensure_ascii=False)
         else:
             incident["severity"] = severity
-            print(f"\n[DetectionEngine] [*] Incident {incident['incident_id']} an toàn (Risk Score: {score}/100).")
+            logger.info("Incident %s (Severity: %s, Score: %d/100).", incident['incident_id'], severity, score)
+        
+        # LUÔN ĐẨY VÀO QUEUE ĐỂ HIỂN THỊ LÊN DASHBOARD VÀ CHẠY NLP REPORT
+        self.action_queue.put(incident)
 
     def _process_queue(self):
         while self.running:

@@ -30,14 +30,13 @@ class ToolMonitor:
         self._window: List[Dict] = []
         self._file_window: List[Dict] = []
         self._lock = threading.Lock()
-        # Ngưỡng
-        self.excessive_limit = 10       # tool calls
-        self.excessive_window = 30      # giây
-        self.mass_enum_limit = 5        # file reads
-        self.mass_enum_window = 10      # giây
+        self.excessive_limit = 10       # max tool calls
+        self.excessive_window = 30      # trong N giây
+        self.mass_enum_limit = 5        # max file reads
+        self.mass_enum_window = 10
 
     def analyze(self, event: Dict[str, Any]) -> Dict[str, Any]:
-        """Phân tích tool invocation, trả về event enriched với tool_analysis."""
+        """Phân tích tool invocation, enrich event với tool_analysis."""
         now = time.time()
         tool_type = (event.get("tool_type") or event.get("tool_name") or "unknown").lower()
         target = event.get("target", "") or event.get("file_path", "") or event.get("command", "") or ""
@@ -49,30 +48,27 @@ class ToolMonitor:
             self._window.append({"time": now, "tool_type": tool_type, "target": target})
             self._window = [e for e in self._window if e["time"] >= now - self.excessive_window]
 
-            # Quá nhiều tool call liên tục
             if len(self._window) > self.excessive_limit:
                 anomalies.append({"type": "EXCESSIVE_TOOL_USAGE", "detail": f"{len(self._window)} calls/{self.excessive_window}s"})
                 risk_score += 30
 
-            # Truy cập file nhạy cảm
             if tool_type in ("file_read", "file_write", "file_list", "file_delete"):
                 self._file_window.append({"time": now, "target": target})
                 self._file_window = [e for e in self._file_window if e["time"] >= now - self.mass_enum_window]
 
                 target_lower = target.lower().replace("\\", "/")
-                for pattern in self.SENSITIVE_FILES:
-                    if pattern in target_lower:
-                        anomalies.append({"type": "SENSITIVE_FILE_ACCESS", "detail": f"{target} (matched: {pattern})"})
+                for pat in self.SENSITIVE_FILES:
+                    if pat in target_lower:
+                        anomalies.append({"type": "SENSITIVE_FILE_ACCESS", "detail": f"{target} (matched: {pat})"})
                         risk_score += 40
                         break
 
-                # Quét quá nhiều file khác nhau
                 unique = set(e["target"] for e in self._file_window if e["target"])
                 if len(unique) > self.mass_enum_limit:
                     anomalies.append({"type": "MASS_FILE_ENUMERATION", "detail": f"{len(unique)} files/{self.mass_enum_window}s"})
                     risk_score += 25
 
-        # Lệnh terminal đáng ngờ
+        # Terminal command đáng ngờ
         if tool_type in ("terminal_execute", "shell_command"):
             cmd_lower = target.lower()
             hits = [kw for kw in self.SUSPICIOUS_COMMANDS if kw in cmd_lower]

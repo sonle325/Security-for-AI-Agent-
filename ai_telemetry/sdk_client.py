@@ -1,16 +1,3 @@
-"""
-SDK Client cho AI Agent gửi Telemetry event về EDR Engine.
-Hỗ trợ Named Pipe (ưu tiên) và TCP Socket (fallback).
-
-Cách dùng:
-    from ai_telemetry.sdk_client import AITelemetryClient
-    client = AITelemetryClient(agent_name="Cursor")
-    client.connect()
-    client.log_prompt("Write a sort function")
-    client.log_tool_invocation("file_read", target=".env")
-    client.close()
-"""
-
 import json
 import time
 import socket
@@ -20,6 +7,8 @@ from typing import Optional
 
 
 class AITelemetryClient:
+    """SDK client để AI Agent gửi telemetry event về EDR qua Named Pipe hoặc TCP."""
+
     PIPE_NAME = r"\\.\pipe\ai_edr_telemetry"
     SOCKET_HOST = "127.0.0.1"
     SOCKET_PORT = 9999
@@ -33,7 +22,7 @@ class AITelemetryClient:
         self._use_pipe = True
 
     def connect(self) -> bool:
-        """Kết nối tới EDR Engine. Thử Named Pipe trước, fallback Socket."""
+        """Kết nối EDR. Thử Named Pipe trước, fallback sang Socket."""
         if self._try_pipe():
             self._use_pipe = True
             self._connected = True

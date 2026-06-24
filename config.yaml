@@ -1,0 +1,154 @@
+# ============================================================
+# AI Runtime Security — Cấu hình tập trung
+# ============================================================
+# Tất cả threshold, credential, whitelist đều ở đây.
+# Không hardcode trong source code.
+# ============================================================
+
+# --- Neo4j Graph Database ---
+neo4j:
+  uri: "bolt://localhost:7687"
+  user: "neo4j"
+  password: "password"
+
+# --- Server Ports ---
+ports:
+  dashboard: 8888
+  ipc_socket: 9999
+  attack_web_server: 8080
+
+# --- IPC Server ---
+ipc:
+  pipe_name: "\\\\.\\pipe\\ai_edr_telemetry"
+  buffer_size: 65536
+
+# --- NLP / AI Model ---
+nlp:
+  model_name: "cross-encoder/nli-deberta-v3-small"
+  hf_mirror: "https://hf-mirror.com"
+  candidate_labels:
+    - "remote code execution"
+    - "data exfiltration"
+    - "prompt injection"
+    - "credential access"
+    - "privilege escalation"
+    - "system discovery"
+    - "lateral movement"
+    - "benign task"
+
+# --- Correlation Engine ---
+correlation:
+  time_window_seconds: 30
+  max_window_size: 100
+  delta_t_threshold: 2.0   # giây — ngưỡng khớp AI Intent ↔ Sysmon Action
+  suspicious_cmd_keywords:
+    - "curl"
+    - "wget"
+    - "invoke-webrequest"
+    - "iex"
+    - "payload"
+    - "attacker"
+    - "malware"
+    - "nc.exe"
+    - "certutil"
+    - "base64"
+    - "-enc"
+    - "downloadstring"
+    - "bypass"
+    - "mimikatz"
+
+# --- Detection Engine ---
+detection:
+  critical_threshold: 60
+  dangerous_keywords:
+    - "curl"
+    - "wget"
+    - "iex"
+    - "invoke-webrequest"
+    - "payload"
+    - "nc.exe"
+    - "mimikatz"
+    - "certutil"
+  allowed_domains:
+    - "github.com"
+    - "viettel.com.vn"
+    - "localhost"
+    - "127.0.0.1"
+    - "pypi.org"
+    - "npm"
+    - "microsoft.com"
+    - "google.com"
+
+# --- Containment Engine ---
+containment:
+  mode: "CONTAIN"    # "CONTAIN" = tự động kill | "ALERT" = chỉ cảnh báo
+  whitelist_processes:
+    - "code.exe"
+    - "cursor.exe"
+    - "explorer.exe"
+    - "svchost.exe"
+    - "system"
+    - "smss.exe"
+    - "csrss.exe"
+    - "wininit.exe"
+    - "services.exe"
+    - "lsass.exe"
+    - "winlogon.exe"
+    - "python.exe"
+    - "pythonw.exe"
+    - "conhost.exe"
+
+# --- Whitelist ParentImage (chống False Positive IDE) ---
+# Nếu ParentImage chứa bất kỳ pattern nào dưới đây,
+# ORPHAN_SUSPICIOUS sẽ KHÔNG được tạo (trừ khi cmdline đặc biệt nguy hiểm).
+whitelist_parent_images:
+  - "antigravity"
+  - "language_server_windows"
+  - "code.exe"
+  - "cursor.exe"
+  - "idea64.exe"
+  - "pycharm64.exe"
+  - "devenv.exe"
+  - "rider64.exe"
+  - "webstorm64.exe"
+  - "goland64.exe"
+  - "copilot"
+  - "github desktop"
+
+# --- Sysmon Listener ---
+sysmon:
+  whitelist_images:
+    - "code.exe"
+    - "cursor.exe"
+    - "chrome.exe"
+    - "explorer.exe"
+    - "svchost.exe"
+    - "msedge.exe"
+    - "conhost.exe"
+
+# --- Tool Monitor ---
+tool_monitor:
+  excessive_limit: 10
+  excessive_window_seconds: 30
+  mass_enum_limit: 5
+  mass_enum_window_seconds: 10
+
+# --- Risk Scoring Weights ---
+risk_weights:
+  rule_severity_max: 20
+  process_weight_powershell: 20
+  process_weight_cmd: 10
+  network_activity: 20
+  correlation_confidence: 30
+  prompt_injection_bonus: 15     # bonus khi có prompt injection
+  tool_anomaly_bonus: 10         # bonus khi có tool anomaly
+  response_disclosure_bonus: 10  # bonus khi có data disclosure
+
+# --- Alert Queue ---
+alert_queue:
+  directory: "alert_queue"
+  max_incidents: 200
+
+# --- Reports ---
+reports:
+  directory: "reports"

@@ -1,11 +1,6 @@
-"""
-IPC Server nhận AI Telemetry event từ AI Agent qua Named Pipe hoặc TCP Socket.
-Pipe: \\\\.\\pipe\\ai_edr_telemetry
-Fallback: TCP 127.0.0.1:9999
-"""
-
 import json
 import queue
+import logging
 import threading
 import time
 from typing import Optional, Dict, Any
@@ -15,8 +10,12 @@ from ai_telemetry.prompt_monitor import PromptMonitor
 from ai_telemetry.tool_monitor import ToolMonitor
 from ai_telemetry.response_monitor import ResponseMonitor
 
+logger = logging.getLogger("EDR.IPC")
+
 
 class IPCTelemetryServer:
+    """Nhận AI Telemetry qua Named Pipe hoặc TCP Socket fallback."""
+
     PIPE_NAME = r"\\.\pipe\ai_edr_telemetry"
     BUFFER_SIZE = 65536
 
@@ -31,7 +30,6 @@ class IPCTelemetryServer:
         self.response_monitor = ResponseMonitor()
 
     def _process_event(self, raw_json: str) -> Optional[Dict[str, Any]]:
-        """Parse JSON, chạy qua monitor tương ứng, normalize."""
         try:
             event = json.loads(raw_json.strip())
         except json.JSONDecodeError:
@@ -41,7 +39,6 @@ class IPCTelemetryServer:
 
         event_type = (event.get("event_type") or event.get("type") or "").lower()
 
-        # Route qua monitor phù hợp
         if event_type == "prompt":
             event = self.prompt_monitor.analyze(event)
         elif event_type == "response":
@@ -60,7 +57,7 @@ class IPCTelemetryServer:
             import win32file  # type: ignore
             import pywintypes  # type: ignore
         except ImportError:
-            print("[IPC Server] pywin32 không khả dụng, dùng Socket fallback...")
+            logger.info("pywin32 not available, using Socket fallback...")
             self._listen_socket_fallback()
             return
 
@@ -76,7 +73,7 @@ class IPCTelemetryServer:
 
                 print(f"[IPC Server] Đợi AI Agent kết nối trên {self.PIPE_NAME}...")
                 win32pipe.ConnectNamedPipe(self.pipe_handle, None)
-                print("[IPC Server] AI Agent đã kết nối!")
+                logger.info("AI Agent connected!")
 
                 buffer = ""
                 while self.running:
@@ -93,7 +90,7 @@ class IPCTelemetryServer:
                                         self.ai_event_queue.put(processed)
                     except pywintypes.error as e:
                         if e.args[0] == 109:  # ERROR_BROKEN_PIPE
-                            print("[IPC Server] Client ngắt kết nối.")
+                            logger.info("Client disconnected.")
                             break
                         else:
                             break
@@ -113,7 +110,6 @@ class IPCTelemetryServer:
                     self.pipe_handle = None
 
     def _listen_socket_fallback(self):
-        """Fallback TCP socket khi không dùng được Named Pipe."""
         import socket
         srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -121,7 +117,7 @@ class IPCTelemetryServer:
         try:
             srv.bind(("127.0.0.1", 9999))
             srv.listen(5)
-            print("[IPC Server] Socket fallback: 127.0.0.1:9999")
+            logger.info("Socket fallback: 127.0.0.1:9999")
             while self.running:
                 try:
                     client, addr = srv.accept()
@@ -156,7 +152,7 @@ class IPCTelemetryServer:
             sock.close()
 
     def inject_event(self, event: Dict[str, Any]):
-        """Cho phép module khác đẩy event trực tiếp vào pipeline (dùng cho demo)."""
+        """Cho module khác đẩy event trực tiếp vào pipeline (dùng cho demo)."""
         processed = self._process_event(json.dumps(event))
         if processed:
             self.ai_event_queue.put(processed)
@@ -167,7 +163,7 @@ class IPCTelemetryServer:
         self.running = True
         self.thread = threading.Thread(target=self._listen_loop, daemon=True)
         self.thread.start()
-        print("[IPC Server] AI Telemetry IPC Server đã khởi động.")
+        logger.info("AI Telemetry IPC Server started.")
 
     def stop(self):
         self.running = False

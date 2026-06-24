@@ -1,14 +1,17 @@
 import queue
+import logging
 import threading
+import json
+import os
 from neo4j import GraphDatabase  # type: ignore
 from graph.neo4j_loader import Neo4jLoader
-from graph.dashboard import IncidentDashboard, push_incident
+
+logger = logging.getLogger("EDR.Neo4j")
 
 
 class Neo4jIncidentGraph:
     def __init__(self, action_queue: queue.Queue,
-                 uri="bolt://localhost:7687", user="neo4j", password="password",
-                 dashboard_port=8888):
+                 uri="bolt://localhost:7687", user="neo4j", password="password"):
         self.action_queue = action_queue
         self.uri = uri
         self.user = user
@@ -16,13 +19,16 @@ class Neo4jIncidentGraph:
         self.driver = None
         self.running = False
         self.thread = None
-        self.dashboard = IncidentDashboard(port=dashboard_port)
+        
+        self.log_dir = "logs"
+        os.makedirs(self.log_dir, exist_ok=True)
+        self.dashboard_feed = os.path.join(self.log_dir, "dashboard_feed.jsonl")
 
     def connect(self):
         try:
             self.driver = GraphDatabase.driver(self.uri, auth=(self.user, self.password))
             self.driver.verify_connectivity()
-            print("[Neo4j] Kết nối thành công tới Neo4j.")
+            logger.info("Successfully connected to Neo4j.")
         except Exception:
             if self.driver:
                 try:
@@ -30,25 +36,42 @@ class Neo4jIncidentGraph:
                 except:
                     pass
             self.driver = None
-            print("[Neo4j] Neo4j offline — chạy MOCK MODE (xuất .cypher + Dashboard).")
+            logger.info("Neo4j offline - running in MOCK MODE (export .cypher + Dashboard).")
 
     def _process_queue(self):
         while self.running:
             try:
                 incident = self.action_queue.get(timeout=1.0)
 
-                # Push vào Dashboard (luôn chạy, dù online hay offline)
-                push_incident(incident)
+                # Format JSON cho Dashboard và ghi ra file log
+                dash_data = {
+                    "id":           incident.get("incident_id", "?"),
+                    "type":         incident.get("incident_type", "CORRELATED"),
+                    "severity":     incident.get("severity", "MEDIUM"),
+                    "agent":        incident.get("ai_event", {}).get("agent", "Unknown"),
+                    "action":       incident.get("ai_event", {}).get("action", ""),
+                    "session_id":   incident.get("ai_event", {}).get("session_id", "") or incident.get("session_id", ""),
+                    "timestamp":    incident.get("ai_event", {}).get("timestamp", ""),
+                    "process":      incident.get("sysmon_event", {}).get("Image", ""),
+                    "cmdline":      incident.get("sysmon_event", {}).get("CommandLine", ""),
+                    "event_id":     str(incident.get("sysmon_event", {}).get("EventID", "")),
+                    "prompt_score": incident.get("prompt_analysis", {}).get("injection_score", 0),
+                    "prompt_risk":  incident.get("prompt_analysis", {}).get("risk_level", ""),
+                    "tool_risk":    incident.get("tool_analysis", {}).get("risk_level", ""),
+                    "data_risk":    incident.get("response_analysis", {}).get("risk_level", ""),
+                }
+                with open(self.dashboard_feed, "a", encoding="utf-8") as f:
+                    f.write(json.dumps(dash_data, ensure_ascii=False) + "\n")
 
                 if self.driver:
-                    success = Neo4jLoader.execute(self.driver, incident)
-                    if success:
-                        print(f"[Neo4j] Đã đẩy Incident {incident.get('incident_id')} lên Neo4j.")
+                    ok = Neo4jLoader.execute(self.driver, incident)
+                    if ok:
+                        logger.info("Pushed Incident %s to Neo4j.", incident.get('incident_id'))
                     else:
                         Neo4jLoader.export_cypher(incident)
                 else:
                     Neo4jLoader.export_cypher(incident)
-                    print(f"[Neo4j] (MOCK) Incident {incident.get('incident_id')} → incident_graph_queries.cypher")
+                    logger.info("(MOCK) Incident %s -> incident_graph_queries.cypher", incident.get('incident_id'))
 
                 self.action_queue.task_done()
             except queue.Empty:
@@ -58,7 +81,6 @@ class Neo4jIncidentGraph:
 
     def start(self):
         self.connect()
-        self.dashboard.start()
         if self.running:
             return
         self.running = True
@@ -71,4 +93,3 @@ class Neo4jIncidentGraph:
             self.thread.join(timeout=2)
         if self.driver:
             self.driver.close()
-        self.dashboard.stop()
