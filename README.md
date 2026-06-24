@@ -77,21 +77,23 @@ python download_model.py
 
 ---
 
-## Khởi động EDR
+## Khởi động EDR & Web Dashboard
 
-**Bắt buộc chạy bằng quyền Administrator** (để đọc Sysmon Event Log và Kill Process):
+Hệ thống giờ đây được thiết kế theo chuẩn Microservices, chia làm 2 phần:
 
+**1. Bật EDR (Bắt buộc chạy bằng quyền Administrator)**
 ```powershell
 # Mở PowerShell as Administrator
 python main.py
 ```
+EDR sẽ chạy ngầm không giao diện, tự động đánh hơi và tiêu diệt tiến trình độc hại!
 
-Khi thấy dòng sau, EDR đã sẵn sàng:
+**2. Bật Web Dashboard (Không cần Admin)**
+Mở Terminal thứ 2 và chạy:
+```powershell
+python web_dashboard.py
 ```
-[AI Analyzer] [+] NLP Pipeline tải thành công!
-[*] EDR Engine is FULLY OPERATIONAL (8/8 Phases).
-[*] Chế độ BACKGROUND: Tự động đánh hơi và tiêu diệt mọi tiến trình độc hại!
-```
+Sau đó truy cập **http://localhost:8888** trên trình duyệt để theo dõi thời gian thực.
 
 ---
 
@@ -100,15 +102,18 @@ Khi thấy dòng sau, EDR đã sẵn sàng:
 Mở **Terminal thứ 2** (không cần Admin) và chạy script Demo:
 
 ```powershell
-# Chạy toàn bộ 5 kịch bản tấn công liên tiếp
+# Chạy toàn bộ 8 kịch bản tấn công liên tiếp
 python attack_simulation/demo_runner.py --scenario all
 
 # Hoặc chọn từng kịch bản cụ thể:
-python attack_simulation/demo_runner.py --scenario 1   # Prompt Injection
-python attack_simulation/demo_runner.py --scenario 2   # Sensitive File Exfiltration
-python attack_simulation/demo_runner.py --scenario 3   # Suspicious Tool Usage
-python attack_simulation/demo_runner.py --scenario 4   # Executable Download (C2 Callback)
-python attack_simulation/demo_runner.py --scenario 5   # Full Attack Chain
+python attack_simulation/demo_runner.py --scenario 1   # Malicious Payload Download
+python attack_simulation/demo_runner.py --scenario 2   # C2 Callback (nc.exe)
+python attack_simulation/demo_runner.py --scenario 3   # Suspicious Registry Modification
+python attack_simulation/demo_runner.py --scenario 4   # Suspicious DNS Query
+python attack_simulation/demo_runner.py --scenario 5   # Full AI-Driven Attack Chain
+python attack_simulation/demo_runner.py --scenario 6   # Prompt Injection qua IPC
+python attack_simulation/demo_runner.py --scenario 7   # Truy Cập File Nhạy Cảm + Mass Enum
+python attack_simulation/demo_runner.py --scenario 8   # Rò Rỉ Dữ Liệu (Credentials/Tokens) qua AI Response
 ```
 
 ### Kết quả kỳ vọng ở Terminal EDR:
@@ -140,13 +145,16 @@ cat alert_queue/INC-0001.json
 
 ```
 AI_Runtime_Security/
-├── main.py                          # Điểm khởi động, orchestrator chính
-├── download_model.py                # Script tải AI Model vào cache
+├── main.py                          # Điểm khởi động EDR Engine
+├── web_dashboard.py                 # Standalone Web Dashboard Server
+├── config.yaml                      # Cấu hình tập trung toàn hệ thống
+├── config_loader.py                 # Đọc và map cấu hình
+├── download_model.py                # Script tải AI Model (DeBERTa) vào cache
 ├── requirements.txt                 # Thư viện Python cần thiết
 │
 ├── ai_telemetry/                    # Tầng 1: Thu thập AI Telemetry
-│   ├── agent_logger.py              # Nhận sự kiện từ AI Agent (IPC Channel)
-│   └── event_normalizer.py          # Chuẩn hóa sự kiện về schema thống nhất
+│   ├── ipc_server.py                # Nhận sự kiện từ AI Agent (IPC Channel)
+│   └── prompt_monitor.py            # (+ ToolMonitor, ResponseMonitor, EventNormalizer)
 │
 ├── collector/                       # Tầng 2: Thu thập Sysmon
 │   ├── sysmon_listener.py           # Subscribe Sysmon Event Log (kernel-level)
@@ -156,24 +164,23 @@ AI_Runtime_Security/
 │   └── correlation_engine.py        # Sliding Window Correlation (Δt ≤ 2s)
 │
 ├── detector/                        # Tầng 4 & 6: Phát hiện + Ngăn chặn
-│   ├── rule_engine.py               # Heuristic Risk Scoring (4 biến số)
-│   └── containment.py               # Kill Process qua psutil
+│   ├── rule_engine.py               # Phát hiện Rule-based, AI Anomaly
+│   ├── risk_scoring.py              # Heuristic Risk Scoring (5 biến số)
+│   └── containment.py               # Kill Process qua psutil + Fail-Safe
 │
 ├── analyzer/                        # Tầng 5: Phân tích NLP
 │   ├── nlp_classifier.py            # Zero-shot DeBERTa v3 threat classification
-│   └── incident_summary.py          # Tổng hợp báo cáo Incident ra file JSON
+│   └── incident_summary.py          # Tổng hợp báo cáo Incident
 │
-├── graph/                           # Tầng 7: Đồ thị điều tra
-│   ├── graph_builder.py             # Orchestrator đẩy Incident lên Neo4j
-│   └── neo4j_loader.py             # Xây dựng & thực thi Cypher Query
+├── graph/                           # Tầng 7: Đồ thị điều tra (Neo4j/Web)
+│   ├── graph_builder.py             # Đẩy Incident lên Neo4j & xuất logs/dashboard_feed.jsonl
+│   ├── neo4j_loader.py              # Xây dựng Cypher Query
+│   └── dashboard.html               # Frontend Web UI (3 tabs: Graph / Timeline / Chain)
 │
-├── alert_queue/                     # Tầng 8: Queue cảnh báo offline
-│   └── INC-XXXX.json               # Mỗi Incident CRITICAL → 1 file JSON
+├── alert_queue/                     # Lưu trữ JSON các vụ CRITICAL offline
+├── reports/                         # Báo cáo tổng hợp sự cố (RPT-INC)
 │
-├── reports/                         # Báo cáo tổng hợp sự cố (SOC)
-│   └── RPT-INC-XXXX.json
-│
-└── attack_simulation/               # Công cụ Demo & Testing
-    ├── demo_runner.py               # 5 kịch bản tấn công tự động
-    └── DEMO_CHEATSHEET.md           # Cheat sheet cho buổi bảo vệ
+└── attack_simulation/               # Công cụ Demo & Testing (8 kịch bản)
+    ├── demo_runner.py               # Chạy kịch bản tự động
+    └── DEMO_CHEATSHEET.md           # Hướng dẫn demo cho buổi báo cáo
 ```
