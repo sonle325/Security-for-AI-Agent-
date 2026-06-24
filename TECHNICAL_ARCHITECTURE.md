@@ -62,7 +62,7 @@ Hệ thống được thiết kế theo kiến trúc hướng sự kiện bất 
 │                 │                       │
 │  ┌──────────────▼────────────────────┐  │
 │  │  PromptMonitor  │  ToolMonitor    │  │
-│  │  ResponseMonitor (3 Monitors)     │  │
+│  │  (inc. FileAccess)│ ResponseMonitor│  │
 │  └──────────────┬────────────────────┘  │
 └─────────────────┼───────────────────────┘
                   │ ai_event_queue
@@ -160,7 +160,7 @@ whitelist = config_loader.get("whitelist_parent_images", default=[])
 corr_cfg = config_loader.get("correlation", default={})
 ```
 
-Config được cache trong bộ nhớ sau lần đọc đầu tiên (`_config_cache`), đảm bảo YAML chỉ parse 1 lần trong suốt vòng đời ứng dụng.
+Config được cache trong bộ nhớ sau lần đọc đầu tiên (`_config_cache`), đảm bảo YAML chỉ parse 1 lần trong suốt vòng đời ứng dụng. Nhờ vậy, từ module cốt lõi (Detection, Correlation) đến các module phụ trợ (Download Model, Web Dashboard, Graph Builder) đều đạt chuẩn **100% Config-driven**.
 
 ### 2.2. Cấu Trúc Config
 
@@ -227,7 +227,7 @@ Bốn loại event được hỗ trợ: `prompt` · `response` · `tool_invocati
 
 ## 4. BỘ GIÁM SÁT AI (AI TELEMETRY MONITORS)
 
-Ba monitor phân tích event AI theo thời gian thực, hoạt động trong luồng IPC Server:
+Hệ thống ban đầu được thiết kế với 4 monitor độc lập. Tuy nhiên, để tối ưu hóa I/O overhead cho IPC Pipeline, tính năng **File Access Monitor** đã được merge trực tiếp vào bên trong **Tool Monitor** (vì bản chất hành vi truy cập file là một Tool Call). Hiện tại có 3 monitor hoạt động trong luồng IPC Server:
 
 ### 4.1. Prompt Monitor — Phát Hiện Prompt Injection
 
