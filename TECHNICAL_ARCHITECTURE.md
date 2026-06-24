@@ -116,6 +116,13 @@ Hệ thống được thiết kế theo kiến trúc hướng sự kiện bất 
                   └────────────────────────┘
 ```
 
+### Nguyên lý hoạt động cốt lõi (Theory of Operations)
+Kiến trúc giải quyết độ trễ và sự rời rạc của AI Log và OS Log bằng cơ chế song song:
+1. **Thu thập kép (Dual Telemetry):** Lấy Intent từ AI (IPC) và Action từ OS (Sysmon).
+2. **Khớp nối (Correlation):** Sử dụng Sliding Window (Δt ≤ 2s) ghép nối Intent và Action nếu chúng có sự tương đồng về Context (ví dụ AI gọi `terminal` và OS mở `powershell.exe`).
+3. **Chấm điểm & Ngăn chặn (Detection & Response):** Áp dụng Heuristic Scoring 5 biến số. Nếu vượt ngưỡng điểm `CRITICAL`, bóp cò tiêu diệt tiến trình (Containment) ở mức độ millisecond.
+4. **Hậu kiểm (Analysis & Visualization):** Việc gán nhãn NLP NLP và vẽ sơ đồ Attack Chain Neo4j được đẩy ra một thread bất đồng bộ riêng biệt (Async Path) để không làm nghẽn luồng phòng thủ thời gian thực.
+
 ### Luồng xử lý thời gian thực (Realtime Path)
 ```
 IPC Server / Sysmon → Correlation Engine → Detection Engine → Risk Scoring → Response Engine

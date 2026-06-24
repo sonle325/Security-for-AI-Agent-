@@ -49,6 +49,13 @@ Dự án kết hợp: giám sát Kernel-level (Sysmon), lưu vết Đồ thị T
 | 7 | `graph/graph_builder.py` | Đẩy Incident lên Neo4j Graph Database |
 | 8 | `alert_queue/` | Lưu file JSON cho SOC điều tra offline |
 
+### Luồng Hoạt Động Chi Tiết (Theory of Operations)
+Kiến trúc của dự án giải quyết bài toán mâu thuẫn giữa "Ý định" (Intent) và "Hành động" (Action):
+1. **Thu thập kép (Dual Telemetry):** Hệ thống song song thu thập 2 luồng dữ liệu. Tầng AI Telemetry bắt lấy **Ý định** của AI Agent (Prompt, Tool Call, Response) thông qua IPC Channel. Tầng Sysmon bắt lấy **Hành động thực tế** diễn ra trên Hệ điều hành (Tạo Process, Kết nối mạng, Ghi Registry).
+2. **Khớp nối (Correlation):** Nếu AI gọi một tool (VD: `terminal.execute`), và trong vòng 2 giây (Sliding Window), OS ghi nhận một Process được tạo ra với nội dung tương đồng, Correlation Engine sẽ ghép chúng lại thành một **Incident** hoàn chỉnh mang cả Context của AI lẫn OS.
+3. **Chấm điểm & Ngăn chặn (Detection & Response):** Incident được chấm điểm rủi ro qua 5 biến số (Rule, Process, Net, Correlation, Monitor Bonus). Nếu vượt ngưỡng `CRITICAL`, EDR lập tức bóp cò (Containment) bằng cách Kill Process ngay ở cấp OS.
+4. **Hậu kiểm (Analysis & Visualization):** Dữ liệu được đẩy bất đồng bộ cho mô hình NLP DeBERTa để giải thích ngôn ngữ tự nhiên (Explainability) và xuất ra luồng dữ liệu đồ thị (Web Dashboard) giúp SOC Analyst theo dõi chuỗi tấn công Attack Chain.
+
 ---
 
 ## Yêu cầu Hệ thống
