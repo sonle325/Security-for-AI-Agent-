@@ -133,11 +133,14 @@ python attack_simulation/demo_runner.py --scenario 8   # Rò Rỉ Dữ Liệu (C
 # Xem file Alert JSON được sinh ra tự động
 ls alert_queue/
 cat alert_queue/INC-0001.json
-
-# Xem Incident Graph (nếu Neo4j đang chạy)
-# Mở Neo4j Browser → http://localhost:7474
-# Chạy: MATCH (n) RETURN n LIMIT 50
 ```
+
+### Giám sát qua Web Dashboard (http://localhost:8888)
+Đừng quên mở trình duyệt để trải nghiệm tính năng điều tra trực quan của hệ thống:
+- **Tab 1 (Incident Graph):** Vẽ sơ đồ liên kết `Agent -> Incident -> Process -> Network/Registry`.
+- **Tab 2 (Timeline):** Luồng thời gian thực của các sự kiện trong cùng một phiên.
+- **Tab 3 (Attack Chain):** Tự động "bung" (unpack) một Incident thành các bước tuần tự (`Prompt -> Tool -> Process -> Network -> Leak`).
+- **Detail Panel:** Hiển thị tự động gán nhãn **MITRE ATT&CK** và render **Process Tree** đồ họa.
 
 ---
 
