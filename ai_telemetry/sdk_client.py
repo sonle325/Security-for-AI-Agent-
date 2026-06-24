@@ -4,14 +4,16 @@ import socket
 import datetime
 import uuid
 from typing import Optional
+import os
+import sys
+
+# Đảm bảo import được config_loader
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+import config_loader
 
 
 class AITelemetryClient:
     """SDK client để AI Agent gửi telemetry event về EDR qua Named Pipe hoặc TCP."""
-
-    PIPE_NAME = r"\\.\pipe\ai_edr_telemetry"
-    SOCKET_HOST = "127.0.0.1"
-    SOCKET_PORT = 9999
 
     def __init__(self, agent_name: str = "Unknown Agent", session_id: Optional[str] = None):
         self.agent_name = agent_name
@@ -20,6 +22,14 @@ class AITelemetryClient:
         self._socket = None
         self._connected = False
         self._use_pipe = True
+
+        ipc_cfg = config_loader.get("ipc", default={})
+        ports_cfg = config_loader.get("ports", default={})
+        
+        self.PIPE_NAME = ipc_cfg.get("pipe_name", r"\\.\pipe\ai_edr_telemetry")
+        self.SOCKET_HOST = "127.0.0.1"
+        self.SOCKET_PORT = ports_cfg.get("ipc_socket", 9999)
+        self.AUTH_TOKEN = ipc_cfg.get("auth_token", "EDR_SECRET_2026")
 
     def connect(self) -> bool:
         """Kết nối EDR. Thử Named Pipe trước, fallback sang Socket."""
@@ -61,7 +71,7 @@ class AITelemetryClient:
             return False
         try:
             # Thêm mã token xác thực (chống Local Spoofing)
-            event["auth_token"] = "EDR_SECRET_2026"
+            event["auth_token"] = self.AUTH_TOKEN
             data = (json.dumps(event, ensure_ascii=False) + "\n").encode("utf-8")
             if self._use_pipe and self._pipe_handle:
                 import win32file  # type: ignore

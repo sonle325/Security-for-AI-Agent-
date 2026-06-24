@@ -21,6 +21,7 @@ ports:
 ipc:
   pipe_name: "\\\\.\\pipe\\ai_edr_telemetry"
   buffer_size: 65536
+  auth_token: "EDR_SECRET_2026"
 
 # --- NLP / AI Model ---
 nlp:

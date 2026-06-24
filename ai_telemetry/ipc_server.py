@@ -9,6 +9,7 @@ from ai_telemetry.event_normalizer import EventNormalizer
 from ai_telemetry.prompt_monitor import PromptMonitor
 from ai_telemetry.tool_monitor import ToolMonitor
 from ai_telemetry.response_monitor import ResponseMonitor
+import config_loader
 
 logger = logging.getLogger("EDR.IPC")
 
@@ -16,14 +17,16 @@ logger = logging.getLogger("EDR.IPC")
 class IPCTelemetryServer:
     """Nhận AI Telemetry qua Named Pipe hoặc TCP Socket fallback."""
 
-    PIPE_NAME = r"\\.\pipe\ai_edr_telemetry"
-    BUFFER_SIZE = 65536
-
     def __init__(self, ai_event_queue: queue.Queue):
         self.ai_event_queue = ai_event_queue
         self.running = False
         self.thread = None
         self.pipe_handle = None
+
+        ipc_cfg = config_loader.get("ipc", default={})
+        self.PIPE_NAME = ipc_cfg.get("pipe_name", r"\\.\pipe\ai_edr_telemetry")
+        self.BUFFER_SIZE = ipc_cfg.get("buffer_size", 65536)
+        self.AUTH_TOKEN = ipc_cfg.get("auth_token", "EDR_SECRET_2026")
 
         self.prompt_monitor = PromptMonitor()
         self.tool_monitor = ToolMonitor()
@@ -38,7 +41,7 @@ class IPCTelemetryServer:
             return None
             
         # Xác thực Token chống Local Fake Event Injection
-        if event.get("auth_token") != "EDR_SECRET_2026":
+        if event.get("auth_token") != self.AUTH_TOKEN:
             logger.warning("Cảnh báo: Bắt được IPC event thiếu Auth Token hợp lệ!")
             return None
 

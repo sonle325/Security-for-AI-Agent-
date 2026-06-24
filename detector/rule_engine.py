@@ -35,10 +35,33 @@ class DetectionEngine:
 
     def _evaluate_risk(self, incident):
         sysmon_event = incident.get("sysmon_event", {})
+
+        # Incident chỉ từ AI Telemetry (Prompt/Tool/Response) — không có Sysmon event
+        # -> giữ nguyên điểm gốc từ Monitor, không chấm lại theo cmdline rỗng
+        if not sysmon_event:
+            score = (incident.get("prompt_analysis", {}).get("injection_score")
+                     or incident.get("tool_analysis", {}).get("risk_score")
+                     or incident.get("response_analysis", {}).get("disclosure_score")
+                     or 0)
+            severity = "CRITICAL" if score >= self.risk_scorer.critical_threshold \
+                        else "MEDIUM" if score >= 30 else "LOW"
+            incident["severity"] = severity
+            if severity == "CRITICAL":
+                logger.warning("CẢNH BÁO MỨC ĐỘ CRITICAL: %s (Monitor Score: %d/100)", incident['incident_id'], score)
+                filepath = os.path.join(self.alert_dir, f"{incident['incident_id']}.json")
+                with open(filepath, "w", encoding="utf-8") as f:
+                    json.dump(incident, f, indent=4, ensure_ascii=False)
+            self.action_queue.put(incident)
+            return
+
         cmdline = sysmon_event.get("CommandLine", "").lower()
 
+        # Fix: Tránh bypass substring (vd: evil-github.com chứa github.com)
+        import re
         for domain in self.allowed_domains:
-            if domain in cmdline:
+            # Regex kiểm tra word boundary hoặc dấu slash xung quanh domain
+            pattern = r'(?i)\b' + re.escape(domain) + r'\b'
+            if re.search(pattern, cmdline):
                 incident["severity"] = "LOW"
                 logger.info("Skipped due to allowlist match: %s", domain)
                 return

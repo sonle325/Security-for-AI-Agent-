@@ -23,7 +23,7 @@ class ContainmentEngine:
             "code.exe", "cursor.exe", "explorer.exe", "svchost.exe",
             "system", "smss.exe", "csrss.exe", "wininit.exe",
             "services.exe", "lsass.exe", "winlogon.exe",
-            "python.exe", "pythonw.exe", "conhost.exe"
+            "conhost.exe"
         ])
 
         # Merge thêm từ whitelist_parent_images (bảo vệ IDE)
@@ -33,8 +33,9 @@ class ContainmentEngine:
                 self.whitelist_images.append(item)
 
     def _is_whitelisted(self, image_name: str) -> bool:
-        img_lower = image_name.lower()
-        return any(safe in img_lower for safe in self.whitelist_images)
+        import os
+        basename = os.path.basename(image_name).lower()
+        return basename in [w.lower() for w in self.whitelist_images]
 
     def _kill_process(self, pid: int, image_name: str):
         if self.mode == "ALERT":
