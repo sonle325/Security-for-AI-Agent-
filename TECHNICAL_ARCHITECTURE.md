@@ -35,6 +35,17 @@ AI Runtime Telemetry  +  System Telemetry
      Risk-based Response
 ```
 
+### So sánh với EDR Truyền thống
+
+| Tiêu chí | EDR truyền thống (CrowdStrike, SentinelOne) | Hệ thống đề xuất (AI Runtime Security) |
+|---|---|---|
+| **Không gian giám sát** | Chỉ Action Space (OS events) | **Dual Space:** Intent Space (AI) + Action Space (OS) |
+| **Phát hiện Prompt Injection** | ❌ Không có khả năng | ✅ PromptMonitor (9 patterns) |
+| **Phát hiện AI Data Disclosure** | ❌ Không nhìn thấy AI response | ✅ ResponseMonitor (12 regex patterns) |
+| **Liên kết AI ↔ OS** | ❌ Không biết AI Agent nào gây ra process | ✅ Intent–Action Correlation (Δt ≤ 2s) |
+| **Truy vết nguồn gốc tấn công** | Chỉ tới ParentProcess | Tới tận **AI Prompt** kích hoạt hành vi |
+| **Xử lý AI-only threats** | ❌ Bỏ sót (không có Sysmon event) | ✅ AI Anomaly auto-incident (không cần Sysmon) |
+
 ---
 
 ## 1. KIẾN TRÚC TỔNG THỂ HỆ THỐNG
@@ -190,6 +201,10 @@ Thành phần cốt lõi nhận telemetry từ AI Agent qua hai cơ chế:
 | TCP Socket | `127.0.0.1:9999` | 2 (fallback) |
 
 Nguyên tắc **Decoupled AI Integration**: Mọi AI Agent chỉ cần gửi JSON event qua IPC Channel. Không phụ thuộc vào một AI Agent cụ thể — có thể mở rộng sang Cursor, GitHub Copilot, Claude Code, OpenAI Agents hoặc AI Agent nội bộ mà không thay đổi kiến trúc lõi.
+
+**Cơ chế bảo mật IPC:**
+- **Auth Token:** Mỗi event phải chứa `auth_token` hợp lệ (cấu hình trong `config.yaml`). Event không có token hoặc sai sẽ bị reject ngay lập tức — chống Local Fake Event Injection.
+- **Queue maxsize:** Tất cả hàng đợi nội bộ đều set giới hạn dung lượng (`maxsize`) để chống DoS (kẻ tấn công spam hàng triệu fake event nhằm tràn RAM).
 
 ### 3.2. SDK Client
 
