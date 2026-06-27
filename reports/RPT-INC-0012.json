@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0012",
-    "generated_at": "2026-06-24T04:10:59.375376+00:00",
+    "generated_at": "2026-06-25T16:11:01.563792+00:00",
     "incident_id": "INC-0012",
     "severity": "MEDIUM",
     "intent_space": {
-        "ai_agent": "GitHub Copilot",
+        "ai_agent": "Aider",
         "action": "response",
         "tool": "unknown",
-        "timestamp": "2026-06-24T04:10:57.426886+00:00",
-        "session_id": "session-e653d338"
+        "timestamp": "2026-06-25T16:11:00.449842+00:00",
+        "session_id": "session-b878878f"
     },
     "action_space": {
         "process": "",
@@ -72,7 +72,7 @@
                     "severity": "CRITICAL"
                 }
             ],
-            "analyzed_at": "2026-06-24T04:10:57.427140+00:00"
+            "analyzed_at": "2026-06-25T16:11:00.450039+00:00"
         }
     },
     "response": {

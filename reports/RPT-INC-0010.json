@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0010",
-    "generated_at": "2026-06-24T04:10:45.275123+00:00",
+    "generated_at": "2026-06-25T16:10:48.053156+00:00",
     "incident_id": "INC-0010",
-    "severity": "MEDIUM",
+    "severity": "CRITICAL",
     "intent_space": {
-        "ai_agent": "Cursor",
+        "ai_agent": "Claude Code",
         "action": "tool_invocation",
         "tool": "terminal_execute",
-        "timestamp": "2026-06-24T04:10:44.415902+00:00",
-        "session_id": "session-9c6fa267"
+        "timestamp": "2026-06-25T16:10:47.443009+00:00",
+        "session_id": "session-613ba7be"
     },
     "action_space": {
         "process": "",
@@ -58,12 +58,12 @@
                     "detail": "keywords: curl, payload, malware, attacker"
                 }
             ],
-            "analyzed_at": "2026-06-24T04:10:44.416132+00:00"
+            "analyzed_at": "2026-06-25T16:10:47.443253+00:00"
         },
         "data_disclosure": {}
     },
     "response": {
-        "action_taken": "MONITOR",
-        "status": "OBSERVED"
+        "action_taken": "KILL_PROCESS",
+        "status": "CONTAINED"
     }
 }

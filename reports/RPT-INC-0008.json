@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0008",
-    "generated_at": "2026-06-24T04:10:42.809797+00:00",
+    "generated_at": "2026-06-25T16:10:45.476224+00:00",
     "incident_id": "INC-0008",
-    "severity": "MEDIUM",
+    "severity": "CRITICAL",
     "intent_space": {
-        "ai_agent": "Cursor",
+        "ai_agent": "Claude Code",
         "action": "tool_invocation",
         "tool": "file_read",
-        "timestamp": "2026-06-24T04:10:41.813610+00:00",
-        "session_id": "session-9c6fa267"
+        "timestamp": "2026-06-25T16:10:44.841750+00:00",
+        "session_id": "session-613ba7be"
     },
     "action_space": {
         "process": "",
@@ -62,12 +62,12 @@
                     "detail": "11 files/10s"
                 }
             ],
-            "analyzed_at": "2026-06-24T04:10:41.813840+00:00"
+            "analyzed_at": "2026-06-25T16:10:44.841970+00:00"
         },
         "data_disclosure": {}
     },
     "response": {
-        "action_taken": "MONITOR",
-        "status": "OBSERVED"
+        "action_taken": "KILL_PROCESS",
+        "status": "CONTAINED"
     }
 }

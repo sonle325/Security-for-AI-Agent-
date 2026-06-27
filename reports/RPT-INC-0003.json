@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0003",
-    "generated_at": "2026-06-24T04:10:38.678816+00:00",
+    "generated_at": "2026-06-25T16:10:41.795398+00:00",
     "incident_id": "INC-0003",
     "severity": "MEDIUM",
     "intent_space": {
-        "ai_agent": "Cursor",
+        "ai_agent": "Claude Code",
         "action": "tool_invocation",
         "tool": "file_read",
-        "timestamp": "2026-06-24T04:10:37.607339+00:00",
-        "session_id": "session-9c6fa267"
+        "timestamp": "2026-06-25T16:10:40.635645+00:00",
+        "session_id": "session-613ba7be"
     },
     "action_space": {
         "process": "",
@@ -54,7 +54,7 @@
                     "detail": "/home/user/.env (matched: .env)"
                 }
             ],
-            "analyzed_at": "2026-06-24T04:10:37.607551+00:00"
+            "analyzed_at": "2026-06-25T16:10:40.635822+00:00"
         },
         "data_disclosure": {}
     },

@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0004",
-    "generated_at": "2026-06-24T04:10:39.439314+00:00",
+    "generated_at": "2026-06-25T16:10:42.190380+00:00",
     "incident_id": "INC-0004",
     "severity": "MEDIUM",
     "intent_space": {
-        "ai_agent": "Cursor",
+        "ai_agent": "Claude Code",
         "action": "tool_invocation",
         "tool": "file_read",
-        "timestamp": "2026-06-24T04:10:38.408806+00:00",
-        "session_id": "session-9c6fa267"
+        "timestamp": "2026-06-25T16:10:41.435913+00:00",
+        "session_id": "session-613ba7be"
     },
     "action_space": {
         "process": "",
@@ -54,7 +54,7 @@
                     "detail": "/home/user/.ssh/id_rsa (matched: id_rsa)"
                 }
             ],
-            "analyzed_at": "2026-06-24T04:10:38.409029+00:00"
+            "analyzed_at": "2026-06-25T16:10:41.436095+00:00"
         },
         "data_disclosure": {}
     },

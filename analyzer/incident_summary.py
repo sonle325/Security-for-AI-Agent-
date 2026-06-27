@@ -62,14 +62,46 @@ class IncidentSummarizer:
                 "data_disclosure": incident.get("response_analysis", {}),
             },
 
-            "response": {
-                "action_taken": "KILL_PROCESS" if severity == "CRITICAL" else "MONITOR",
-                "status": "CONTAINED" if severity == "CRITICAL" else "OBSERVED",
-            },
+            "response": self._build_response(incident),
         }
 
         self._save(summary)
         return summary
+
+    @staticmethod
+    def _build_response(incident: Dict[str, Any]) -> Dict[str, str]:
+        """Xây dựng phần response dựa trên kết quả containment thực tế,
+        không suy luận từ severity.
+        """
+        result = incident.get("containment_result", "")
+        severity = incident.get("severity", "LOW")
+
+        # Mapping kết quả thực tế → action_taken & status trung thực
+        result_map = {
+            "TERMINATED":       ("KILL_PROCESS",  "CONTAINED"),
+            "ALREADY_EXITED":   ("KILL_PROCESS",  "CONTAINED"),
+            "ACCESS_DENIED":    ("KILL_ATTEMPTED", "FAILED_ACCESS_DENIED"),
+            "WHITELISTED":      ("BLOCKED_BY_WHITELIST", "NOT_CONTAINED"),
+            "ALERT_ONLY":       ("ALERT",         "OBSERVED"),
+            "NO_PID_AVAILABLE": ("NO_ACTION",     "DETECTION_ONLY"),
+            "INVALID_PID":      ("NO_ACTION",     "DETECTION_ONLY"),
+            "NOT_CRITICAL":     ("MONITOR",       "OBSERVED"),
+            "ERROR":            ("KILL_ATTEMPTED", "FAILED_ERROR"),
+        }
+
+        if result in result_map:
+            action, status = result_map[result]
+        elif severity == "CRITICAL":
+            # Fallback: nếu chưa qua ContainmentEngine (race condition / queue chưa xử lý)
+            action, status = "PENDING", "PENDING_CONTAINMENT"
+        else:
+            action, status = "MONITOR", "OBSERVED"
+
+        return {
+            "action_taken": action,
+            "status": status,
+            "containment_detail": result or "N/A",
+        }
 
     def _save(self, summary: Dict[str, Any]):
         filename = f"{summary['report_id']}.json"

