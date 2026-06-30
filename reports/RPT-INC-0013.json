@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0013",
-    "generated_at": "2026-06-25T16:11:03.592624+00:00",
+    "generated_at": "2026-06-30T03:02:34.938389+00:00",
     "incident_id": "INC-0013",
     "severity": "CRITICAL",
     "intent_space": {
-        "ai_agent": "Aider",
+        "ai_agent": "Devin",
         "action": "response",
         "tool": "unknown",
-        "timestamp": "2026-06-25T16:11:02.450423+00:00",
-        "session_id": "session-b878878f"
+        "timestamp": "2026-06-30T03:02:32.823187+00:00",
+        "session_id": "session-4cd4cc39"
     },
     "action_space": {
         "process": "",
@@ -77,11 +77,12 @@
                     "severity": "CRITICAL"
                 }
             ],
-            "analyzed_at": "2026-06-25T16:11:02.450576+00:00"
+            "analyzed_at": "2026-06-30T03:02:32.823374+00:00"
         }
     },
     "response": {
-        "action_taken": "KILL_PROCESS",
-        "status": "CONTAINED"
+        "action_taken": "NO_ACTION",
+        "status": "DETECTION_ONLY",
+        "containment_detail": "NO_PID_AVAILABLE"
     }
 }

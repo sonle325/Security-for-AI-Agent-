@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0017",
-    "generated_at": "2026-06-24T04:17:11.415728+00:00",
+    "generated_at": "2026-06-30T03:03:04.422619+00:00",
     "incident_id": "INC-0017",
     "severity": "MEDIUM",
     "intent_space": {
         "ai_agent": "Cursor",
         "action": "tool_invocation",
         "tool": "terminal_execute",
-        "timestamp": "2026-06-24T04:17:10.269905+00:00",
-        "session_id": "session-0e632f54"
+        "timestamp": "2026-06-30T03:03:03.267746+00:00",
+        "session_id": "session-56a06b91"
     },
     "action_space": {
         "process": "",
@@ -51,15 +51,16 @@
             "anomalies": [
                 {
                     "type": "SUSPICIOUS_TERMINAL",
-                    "detail": "keywords: invoke-webrequest, payload, attacker"
+                    "detail": "keywords: invoke-webrequest, hacker"
                 }
             ],
-            "analyzed_at": "2026-06-24T04:17:10.270085+00:00"
+            "analyzed_at": "2026-06-30T03:03:03.270175+00:00"
         },
         "data_disclosure": {}
     },
     "response": {
         "action_taken": "MONITOR",
-        "status": "OBSERVED"
+        "status": "OBSERVED",
+        "containment_detail": "NOT_CRITICAL"
     }
 }

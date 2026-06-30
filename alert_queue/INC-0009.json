@@ -2,14 +2,14 @@
     "incident_id": "INC-0009",
     "incident_type": "TOOL_ANOMALY",
     "ai_event": {
-        "ai_event_id": "TOOL-1782403845142",
+        "ai_event_id": "TOOL-1782788535496",
         "event_type": "tool_invocation",
-        "agent": "Claude Code",
+        "agent": "Aider",
         "action": "tool_invocation",
         "tool": "file_read",
-        "timestamp": "2026-06-25T16:10:45.142266+00:00",
+        "timestamp": "2026-06-30T03:02:15.496271+00:00",
         "raw_command": "",
-        "session_id": "session-613ba7be",
+        "session_id": "session-e3312312",
         "user": "",
         "tool_type": "file_read",
         "target": "appsettings.json",
@@ -32,7 +32,7 @@
                     "detail": "12 files/10s"
                 }
             ],
-            "analyzed_at": "2026-06-25T16:10:45.142419+00:00"
+            "analyzed_at": "2026-06-30T03:02:15.496571+00:00"
         },
         "_correlated": true
     },
@@ -55,7 +55,7 @@
                 "detail": "12 files/10s"
             }
         ],
-        "analyzed_at": "2026-06-25T16:10:45.142419+00:00"
+        "analyzed_at": "2026-06-30T03:02:15.496571+00:00"
     },
     "severity": "CRITICAL"
 }

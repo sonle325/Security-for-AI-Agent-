@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0015",
-    "generated_at": "2026-06-24T04:15:40.557407+00:00",
+    "generated_at": "2026-06-30T03:02:59.754676+00:00",
     "incident_id": "INC-0015",
     "severity": "MEDIUM",
     "intent_space": {
         "ai_agent": "Cursor",
         "action": "prompt",
         "tool": "unknown",
-        "timestamp": "2026-06-24T04:15:38.777492+00:00",
-        "session_id": "session-77945838"
+        "timestamp": "2026-06-30T03:02:57.829530+00:00",
+        "session_id": "session-56a06b91"
     },
     "action_space": {
         "process": "",
@@ -67,13 +67,14 @@
                 "instruction_override",
                 "cmd_execution"
             ],
-            "analyzed_at": "2026-06-24T04:15:38.778857+00:00"
+            "analyzed_at": "2026-06-30T03:02:57.833530+00:00"
         },
         "tool_anomaly": {},
         "data_disclosure": {}
     },
     "response": {
         "action_taken": "MONITOR",
-        "status": "OBSERVED"
+        "status": "OBSERVED",
+        "containment_detail": "NOT_CRITICAL"
     }
 }

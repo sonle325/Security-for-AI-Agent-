@@ -1,14 +1,14 @@
 {
     "report_id": "RPT-INC-0002",
-    "generated_at": "2026-06-24T04:10:26.599218+00:00",
+    "generated_at": "2026-06-30T03:02:01.109005+00:00",
     "incident_id": "INC-0002",
-    "severity": "MEDIUM",
+    "severity": "CRITICAL",
     "intent_space": {
-        "ai_agent": "Cursor",
+        "ai_agent": "Devin",
         "action": "prompt",
         "tool": "unknown",
-        "timestamp": "2026-06-24T04:10:25.591819+00:00",
-        "session_id": "session-bd1446bc"
+        "timestamp": "2026-06-30T03:01:58.979144+00:00",
+        "session_id": "session-204590b4"
     },
     "action_space": {
         "process": "",
@@ -69,13 +69,14 @@
                 "jailbreak",
                 "system_override"
             ],
-            "analyzed_at": "2026-06-24T04:10:25.591994+00:00"
+            "analyzed_at": "2026-06-30T03:01:58.979513+00:00"
         },
         "tool_anomaly": {},
         "data_disclosure": {}
     },
     "response": {
-        "action_taken": "MONITOR",
-        "status": "OBSERVED"
+        "action_taken": "NO_ACTION",
+        "status": "DETECTION_ONLY",
+        "containment_detail": "NO_PID_AVAILABLE"
     }
 }
