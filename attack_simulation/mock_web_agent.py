@@ -8,18 +8,18 @@ import subprocess
 import threading
 import sys
 import os
-
-from attack_simulation.static_web_server import run_server
 import urllib.request
 
-sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from attack_simulation.static_web_server import run_server
 
 
 def is_server_running(port=8080):
     try:
         urllib.request.urlopen(f"http://localhost:{port}", timeout=1)
         return True
-    except:
+    except Exception:
         return False
 
 

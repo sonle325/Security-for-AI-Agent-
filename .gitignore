@@ -6,3 +6,9 @@ incident_graph_queries.cypher
 incident_graph_queries.txt
 .env
 alert_queue/
+.vscode/
+logs/dashboard_feed.jsonl
+reports/RPT-*.json
+*.egg-info/
+dist/
+build/

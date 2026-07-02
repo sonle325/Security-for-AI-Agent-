@@ -1,13 +1,9 @@
 import json
 import os
 import logging
-import threading
-import sys
 from collections import deque
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# Đảm bảo import được config_loader
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import config_loader
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")

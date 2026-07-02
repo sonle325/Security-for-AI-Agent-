@@ -3,10 +3,7 @@ import logging
 import threading
 import json
 import os
-import sys
 
-# Đảm bảo import được config_loader
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config_loader
 from neo4j import GraphDatabase  # type: ignore
 from graph.neo4j_loader import Neo4jLoader
@@ -39,7 +36,7 @@ class Neo4jIncidentGraph:
             if self.driver:
                 try:
                     self.driver.close()
-                except:
+                except Exception:
                     pass
             self.driver = None
             logger.info("Neo4j offline - running in MOCK MODE (export .cypher + Dashboard).")

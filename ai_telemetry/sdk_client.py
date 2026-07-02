@@ -4,11 +4,7 @@ import socket
 import datetime
 import uuid
 from typing import Optional
-import os
-import sys
 
-# Đảm bảo import được config_loader
-sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 import config_loader
 
 
@@ -52,7 +48,7 @@ class AITelemetryClient:
                 0, None, win32file.OPEN_EXISTING, 0, None
             )
             return True
-        except:
+        except Exception:
             return False
 
     def _try_socket(self) -> bool:
@@ -60,7 +56,7 @@ class AITelemetryClient:
             self._socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self._socket.connect((self.SOCKET_HOST, self.SOCKET_PORT))
             return True
-        except:
+        except Exception:
             if self._socket:
                 self._socket.close()
                 self._socket = None
@@ -123,12 +119,12 @@ class AITelemetryClient:
             if self._pipe_handle:
                 import win32file  # type: ignore
                 win32file.CloseHandle(self._pipe_handle)
-        except:
+        except Exception:
             pass
         try:
             if self._socket:
                 self._socket.close()
-        except:
+        except Exception:
             pass
         self._pipe_handle = None
         self._socket = None

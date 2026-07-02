@@ -5,6 +5,7 @@ import queue
 import logging
 import threading
 from .event_parser import EventParser
+import config_loader
 
 logger = logging.getLogger("EDR.Sysmon")
 
@@ -16,10 +17,11 @@ class SysmonListener:
         self.subscription = None
         self.thread = None
 
-        self.whitelist_images = [
+        sysmon_cfg = config_loader.get("sysmon", default={})
+        self.whitelist_images = sysmon_cfg.get("whitelist_images", [
             "code.exe", "cursor.exe", "chrome.exe",
             "explorer.exe", "svchost.exe"
-        ]
+        ])
 
     def _is_whitelisted(self, image_path: str) -> bool:
         if not image_path:
@@ -62,7 +64,7 @@ class SysmonListener:
                 if self.subscription:
                     try:
                         self.subscription.close()
-                    except:
+                    except Exception:
                         pass
                     self.subscription = None
                 time.sleep(5)
@@ -79,7 +81,7 @@ class SysmonListener:
         if self.subscription:
             try:
                 self.subscription.close()
-            except:
+            except Exception:
                 pass
             self.subscription = None
         if self.thread:

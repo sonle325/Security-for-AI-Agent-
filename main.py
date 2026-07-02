@@ -1,3 +1,10 @@
+"""AI Runtime Security — EDR Engine entry point.
+
+Khởi động toàn bộ pipeline 8 tầng: Sysmon Collector, AI Telemetry IPC,
+Correlation Engine, Detection Engine, Containment, NLP Analyzer, Neo4j Graph.
+Chạy bằng quyền Administrator để Sysmon Listener có thể đọc Event Log.
+"""
+
 import time
 import queue
 import threading

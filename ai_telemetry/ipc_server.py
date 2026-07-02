@@ -113,7 +113,7 @@ class IPCTelemetryServer:
                 if self.pipe_handle:
                     try:
                         win32file.CloseHandle(self.pipe_handle)
-                    except:
+                    except Exception:
                         pass
                     self.pipe_handle = None
 
@@ -179,7 +179,7 @@ class IPCTelemetryServer:
             try:
                 import win32file  # type: ignore
                 win32file.CloseHandle(self.pipe_handle)
-            except:
+            except Exception:
                 pass
             self.pipe_handle = None
         if self.thread:
