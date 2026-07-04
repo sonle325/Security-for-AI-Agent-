@@ -40,7 +40,7 @@ Dự án kết hợp: giám sát Kernel-level (Sysmon), lưu vết Đồ thị T
 
 | Tầng | Module | Chức năng |
 |------|--------|-----------|
-| 1 | `ai_telemetry/agent_logger.py` | Nhận AI Telemetry Event từ AI Agent qua IPC |
+| 1 | `mcp_gateway/`, `lsp_sniffer/`, `ai_telemetry/` | Thu thập AI Telemetry qua 3 lớp (MCP Intercept, OS Sniffing, IPC) |
 | 2 | `collector/sysmon_listener.py` | Đọc luồng sự kiện từ Sysmon (Kernel-level) |
 | 3 | `correlation/correlation_engine.py` | Sliding Window Correlation (Δt ≤ 2 giây) |
 | 4 | `detector/rule_engine.py` | Probabilistic Risk Scoring, phát hiện payload |
@@ -168,8 +168,17 @@ AI_Runtime_Security/
 ├── download_model.py                # Script tải AI Model (DeBERTa) vào cache
 ├── requirements.txt                 # Thư viện Python cần thiết
 │
-├── ai_telemetry/                    # Tầng 1: Thu thập AI Telemetry
-│   ├── ipc_server.py                # Nhận sự kiện từ AI Agent (IPC Channel)
+├── mcp_gateway/                     # Tầng 1 (Lớp 1): Transparent Proxy chặn/sửa MCP traffic
+│   ├── gateway.py                   # MCP Proxy Server
+│   ├── interceptor.py               # Security Analyzer cho tools/call
+│   └── protocol.py                  # JSON-RPC 2.0 Parser
+│
+├── lsp_sniffer/                     # Tầng 1 (Lớp 2): OS-level Passive Monitor
+│   └── sniffer.py                   # Giám sát Process & Named Pipes
+│
+├── ai_telemetry/                    # Tầng 1 (Lớp 3): Thu thập qua SDK/IPC
+│   ├── ipc_server.py                # Nhận sự kiện từ AI Agent tự nguyện báo cáo
+│   ├── deduplicator.py              # Loại bỏ log trùng lặp giữa 3 lớp
 │   └── prompt_monitor.py            # (+ ToolMonitor, ResponseMonitor, EventNormalizer)
 │
 ├── collector/                       # Tầng 2: Thu thập Sysmon
