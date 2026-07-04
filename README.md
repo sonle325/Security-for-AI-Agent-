@@ -25,8 +25,8 @@ Dự án kết hợp: giám sát Kernel-level (Sysmon), lưu vết Đồ thị T
        └────────┬────────┘
                 ▼
        ┌─────────────────┐
-       │  Detection      │   ← Risk Scoring (5 biến số)
-       │   Engine        │       Rule(20) + Process(20) + Net(20) + Corr(30) + Monitor(10)
+       │  Detection      │   ← Probabilistic Risk Scoring
+       │   Engine        │       Base Severity × Confidence × Context
        └────────┬────────┘
                 │
        ┌────────┼────────┬──────────────┐
@@ -43,94 +43,88 @@ Dự án kết hợp: giám sát Kernel-level (Sysmon), lưu vết Đồ thị T
 | 1 | `ai_telemetry/agent_logger.py` | Nhận AI Telemetry Event từ AI Agent qua IPC |
 | 2 | `collector/sysmon_listener.py` | Đọc luồng sự kiện từ Sysmon (Kernel-level) |
 | 3 | `correlation/correlation_engine.py` | Sliding Window Correlation (Δt ≤ 2 giây) |
-| 4 | `detector/rule_engine.py` | Heuristic Risk Scoring, phát hiện payload |
+| 4 | `detector/rule_engine.py` | Probabilistic Risk Scoring, phát hiện payload |
 | 5 | `analyzer/nlp_classifier.py` | Zero-shot NLP (DeBERTa v3) phân loại mối đe dọa |
 | 6 | `detector/containment.py` | Kill Process độc hại qua psutil API |
 | 7 | `graph/graph_builder.py` | Đẩy Incident lên Neo4j Graph Database |
 | 8 | `alert_queue/` | Lưu file JSON cho SOC điều tra offline |
 
-### Luồng Hoạt Động Chi Tiết (Theory of Operations)
+### 2. Mô hình Kiến trúc
+Hệ thống gồm **8 tầng (Layers)**, với sự thay đổi cốt lõi ở Tầng 1 để giải quyết bài toán "Vùng Mù" của AI Agent.
+
+```
+[ IDE / Code Editor ] <──(LSP Sniffer)──> [ AI Agent (Cursor, Copilot, ...) ]
+                                                         │
+                                                  (MCP Protocol)
+                                                         │
+                                                         ▼
+[ MCP Server Thật ] <───────(MCP Security Gateway)───────┘
+                                       │ (Intercept & Block)
+                                       ▼
+                         [ AI_Runtime_Security (EDR) ]
+```
+
+#### Tầng 1: AI Telemetry Collection (Giải quyết Vùng Mù)
+Thu thập hành vi của AI Agent qua 3 luồng:
+1. **MCP Security Gateway (MỚI - MANDATORY)**: Transparent proxy đứng giữa AI Agent và các MCP Server. Intercept toàn bộ giao thức JSON-RPC (Model Context Protocol), phân tích `tools/call` và `resources/read`. Block real-time các tool call nguy hiểm trước khi chúng được thực thi.
+2. **LSP Sniffer (MỚI - PASSIVE)**: Giám sát ở tầng OS (process list, named pipes) quá trình giao tiếp giữa IDE và AI Extension. Phát hiện các child process do AI sinh ra (như spawn shell, tải file) mà không cần AI tự nguyện báo cáo.
+3. **SDK Client (Fallback)**: Dành cho các AI Agent tự nguyện tích hợp qua Named Pipe hoặc TCP.
+
+#### Tầng 2: OS/Sysmon Collector
 Kiến trúc của dự án giải quyết bài toán mâu thuẫn giữa "Ý định" (Intent) và "Hành động" (Action):
 1. **Thu thập kép (Dual Telemetry):** Hệ thống song song thu thập 2 luồng dữ liệu. Tầng AI Telemetry bắt lấy **Ý định** của AI Agent (Prompt, Tool Call, Response) thông qua IPC Channel. Tầng Sysmon bắt lấy **Hành động thực tế** diễn ra trên Hệ điều hành (Tạo Process, Kết nối mạng, Ghi Registry).
 2. **Khớp nối (Correlation):** Nếu AI gọi một tool (VD: `terminal.execute`), và trong vòng 2 giây (Sliding Window), OS ghi nhận một Process được tạo ra với nội dung tương đồng, Correlation Engine sẽ ghép chúng lại thành một **Incident** hoàn chỉnh mang cả Context của AI lẫn OS.
-3. **Chấm điểm & Ngăn chặn (Detection & Response):** Incident được chấm điểm rủi ro qua 5 biến số (Rule, Process, Net, Correlation, Monitor Bonus). Nếu vượt ngưỡng `CRITICAL`, EDR lập tức bóp cò (Containment) bằng cách Kill Process ngay ở cấp OS.
+3. **Chấm điểm & Ngăn chặn (Detection & Response):** Incident được chấm điểm xác suất (Probabilistic Risk = Base Severity × Confidence × Context Multiplier). Nếu vượt ngưỡng `CRITICAL`, EDR lập tức bóp cò (Containment) bằng cách Kill Process ngay ở cấp OS.
 4. **Hậu kiểm (Analysis & Visualization):** Dữ liệu được đẩy bất đồng bộ cho mô hình NLP DeBERTa để giải thích ngôn ngữ tự nhiên (Explainability) và xuất ra luồng dữ liệu đồ thị (Web Dashboard) giúp SOC Analyst theo dõi chuỗi tấn công Attack Chain.
 
 ---
 
-## Yêu cầu Hệ thống
+## 🚀 Hướng dẫn Cài đặt & Chạy Demo
 
-### Bắt buộc: Cài Sysmon
-```powershell
-# Tải Sysmon từ Microsoft Sysinternals, giải nén rồi chạy:
-Sysmon64.exe -accepteula -i
+### 1. Yêu cầu hệ thống
+- Hệ điều hành: Windows (Bắt buộc, do sử dụng Sysmon và Named Pipe)
+- Python 3.9+
+- Sysmon v15+ (tải từ Sysinternals)
+- Neo4j (Local hoặc AuraDB)
+
+### 2. Cài đặt Sysmon
+```cmd
+sysmon64.exe -i sysmon_config.xml
 ```
 
-### Khuyên dùng: Neo4j Desktop
-Tải tại [neo4j.com/download](https://neo4j.com/download/) → Tạo Local Database với password = `password` → Start.
-
----
-
-## Cài đặt
-
-```powershell
-git clone https://github.com/sonle325/Security-for-AI-Agent-.git
-cd Security-for-AI-Agent-
+### 3. Cài đặt Python Dependencies
+```cmd
 pip install -r requirements.txt
-
-# (Khuyên dùng) Tải trước AI Model ~150MB vào cache
-python download_model.py
 ```
 
----
+### 4. Cấu hình hệ thống
+Copy file `config.yaml.example` thành `config.yaml` và cấu hình:
+- Neo4j credentials
+- HuggingFace/OpenAI Token
+- Các ngưỡng Alert & Blocking
+- Cấu hình MCP Gateway (`mode: INTERCEPT` hoặc `MONITOR`)
 
-## Khởi động EDR & Web Dashboard
-
-Hệ thống giờ đây được thiết kế theo chuẩn Microservices, chia làm 2 phần:
-
-**1. Bật EDR (Bắt buộc chạy bằng quyền Administrator)**
-```powershell
-# Mở PowerShell as Administrator
+### 5. Chạy Hệ thống (EDR Engine)
+Mở một terminal với quyền Administrator (để đọc Sysmon):
+```cmd
 python main.py
 ```
-EDR sẽ chạy ngầm không giao diện, tự động đánh hơi và tiêu diệt tiến trình độc hại!
 
-**2. Bật Web Dashboard (Không cần Admin)**
-Mở Terminal thứ 2 và chạy:
-```powershell
-python web_dashboard.py
+### 6. Chạy Kịch bản Tấn công (Attack Simulation)
+Hệ thống đi kèm các script giả lập tấn công để kiểm thử:
+
+**A. Demo MCP Gateway (Real-time Blocking)**
+Mở terminal thứ hai và chạy:
+```cmd
+python attack_simulation\demo_mcp_attack.py
 ```
-Sau đó truy cập **http://localhost:8888** trên trình duyệt để theo dõi thời gian thực.
+> Script này sẽ giả lập việc gửi các tool calls nguy hiểm qua MCP Protocol và bị chặn ngay lập tức bởi MCP Security Gateway mà không cần thực thi ở OS.
 
----
-
-## Demo Tấn công & Phòng thủ
-
-Mở **Terminal thứ 2** (không cần Admin) và chạy script Demo:
-
-```powershell
-# Chạy toàn bộ 8 kịch bản tấn công liên tiếp
-python attack_simulation/demo_runner.py --scenario all
-
-# Hoặc chọn từng kịch bản cụ thể:
-python attack_simulation/demo_runner.py --scenario 1   # Malicious Payload Download
-python attack_simulation/demo_runner.py --scenario 2   # C2 Callback (nc.exe)
-python attack_simulation/demo_runner.py --scenario 3   # Suspicious Registry Modification
-python attack_simulation/demo_runner.py --scenario 4   # Suspicious DNS Query
-python attack_simulation/demo_runner.py --scenario 5   # Full AI-Driven Attack Chain
-python attack_simulation/demo_runner.py --scenario 6   # Prompt Injection qua IPC
-python attack_simulation/demo_runner.py --scenario 7   # Truy Cập File Nhạy Cảm + Mass Enum
-python attack_simulation/demo_runner.py --scenario 8   # Rò Rỉ Dữ Liệu (Credentials/Tokens) qua AI Response
+**B. Demo Full Attack Chain (Prompt -> Tool -> OS)**
+```cmd
+python attack_simulation\demo.py
 ```
-
-### Kết quả kỳ vọng ở Terminal EDR:
-```
-[CorrelationEngine] [!] PHÁT HIỆN TIẾN TRÌNH CHẠY NGẦM ĐÁNG NGỜ!
-[DetectionEngine]   [!] CẢNH BÁO MỨC ĐỘ CRITICAL: INC-0001
-   [!] Công thức: Rule(20) + Process(20) + Net(20) + Corr(0) + Monitor(0) = 60 điểm
-[ResponseEngine]    [+] ĐÃ TIÊU DIỆT THÀNH CÔNG TIẾN TRÌNH ĐỘC HẠI!
-[AI Analyzer]       [+] Threat Label: REMOTE CODE EXECUTION (Confidence: 97.1%)
-```
+(Hoặc chạy cụ thể `python attack_simulation\demo.py --scenario exfiltration`)
 
 ---
 
@@ -144,8 +138,11 @@ cat alert_queue/INC-0001.json
 
 ### Giám sát qua Web Dashboard (http://localhost:8888)
 Đừng quên mở trình duyệt để trải nghiệm tính năng điều tra trực quan của hệ thống:
-- **Tab 1 (Incident Graph):** Vẽ sơ đồ liên kết `Agent -> Incident -> Process -> Network/Registry`.
-- **Tab 2 (Timeline):** Luồng thời gian thực của các sự kiện trong cùng một phiên.
+#### Tầng 5: Graph Engine (Neo4j)
+Mô hình hóa Incident thành đồ thị:
+- **Node**: Session, AI Agent, Prompt, Sysmon Process, File, Network.
+- **Edge**: `TRIGGERED`, `SPAWNED`, `ACCESSED`, `CONNECTED_TO`.
+- Cung cấp cái nhìn trực quan về chuỗi tấn công (Attack Chain) xuyên suốt từ MCP Tool Call tới OS Process.
 - **Tab 3 (Attack Chain):** Tự động "bung" (unpack) một Incident thành các bước tuần tự (`Prompt -> Tool -> Process -> Network -> Leak`).
 - **Detail Panel:** Hiển thị tự động gán nhãn **MITRE ATT&CK** và render **Process Tree** đồ họa.
 
@@ -184,7 +181,7 @@ AI_Runtime_Security/
 │
 ├── detector/                        # Tầng 4 & 6: Phát hiện + Ngăn chặn
 │   ├── rule_engine.py               # Phát hiện Rule-based, AI Anomaly
-│   ├── risk_scoring.py              # Heuristic Risk Scoring (5 biến số)
+│   ├── risk_scoring.py              # Probabilistic Risk Scoring (Severity x Confidence x Context)
 │   └── containment.py               # Kill Process qua psutil + Fail-Safe
 │
 ├── analyzer/                        # Tầng 5: Phân tích NLP

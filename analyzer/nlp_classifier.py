@@ -69,7 +69,7 @@ class AISecurityAnalyzer:
 
                 classifications = []
 
-                # CommandLine (Sysmon)
+
                 cmdline = incident.get("sysmon_event", {}).get("CommandLine", "")
                 if cmdline:
                     cls = self._classify_text(cmdline, incident_id)
@@ -77,7 +77,7 @@ class AISecurityAnalyzer:
                         cls["source"] = "sysmon_cmdline"
                         classifications.append(cls)
 
-                # Prompt content (AI Telemetry)
+
                 prompt_content = incident.get("ai_event", {}).get("content", "")
                 if prompt_content:
                     cls = self._classify_text(prompt_content, incident_id)
@@ -85,7 +85,7 @@ class AISecurityAnalyzer:
                         cls["source"] = "ai_prompt"
                         classifications.append(cls)
 
-                # AI action description (fallback nếu không có cmdline)
+
                 ai_action = incident.get("ai_event", {}).get("action", "")
                 ai_tool = incident.get("ai_event", {}).get("tool", "")
                 if ai_action and not cmdline:

@@ -18,7 +18,6 @@ class ContainmentEngine:
 
         self.action_lock = threading.Lock()
 
-        # Whitelist — tiến trình KHÔNG BAO GIỜ bị kill dù ML detect nhầm
         self.whitelist_images = cont_cfg.get("whitelist_processes", [
             "code.exe", "cursor.exe", "explorer.exe", "svchost.exe",
             "system", "smss.exe", "csrss.exe", "wininit.exe",
@@ -26,7 +25,6 @@ class ContainmentEngine:
             "conhost.exe"
         ])
 
-        # Merge thêm từ whitelist_parent_images (bảo vệ IDE)
         parent_wl = config_loader.get("whitelist_parent_images", default=[])
         for item in parent_wl:
             if item not in self.whitelist_images:
@@ -38,11 +36,6 @@ class ContainmentEngine:
         return basename in [w.lower() for w in self.whitelist_images]
 
     def _kill_process(self, pid: int, image_name: str) -> str:
-        """Thực hiện kill process và trả về kết quả thực tế.
-        
-        Returns:
-            str: TERMINATED | ALREADY_EXITED | ACCESS_DENIED | WHITELISTED | ALERT_ONLY | ERROR
-        """
         if self.mode == "ALERT":
             logger.info("[MODE: ALERT] Skipped terminating PID %d (%s) - Monitor-only mode.", pid, image_name)
             return "ALERT_ONLY"
@@ -51,11 +44,16 @@ class ContainmentEngine:
             logger.warning("FAIL-SAFE: Từ chối kill tiến trình an toàn: %s (PID: %d).", image_name, pid)
             return "WHITELISTED"
 
-        # Lock để tránh race condition + deadlock nếu psutil crash
         self.action_lock.acquire()
         try:
             p = psutil.Process(pid)
             p.terminate()
+            try:
+                p.wait(timeout=1)
+            except psutil.TimeoutExpired:
+                pass
+            if p.is_running():
+                p.kill()
             logger.info("Terminated PID: %d (%s)", pid, image_name)
             return "TERMINATED"
         except psutil.NoSuchProcess:
@@ -87,8 +85,6 @@ class ContainmentEngine:
                         except ValueError:
                             incident["containment_result"] = "INVALID_PID"
                     else:
-                        # AI-only incident (Prompt Injection / Tool Anomaly / Data Disclosure)
-                        # Không có PID từ Sysmon → không thể kill → ghi trung thực
                         incident["containment_result"] = "NO_PID_AVAILABLE"
                         logger.info("Incident %s is AI-only (no sysmon PID) — containment not applicable.",
                                     incident['incident_id'])

@@ -26,7 +26,6 @@ class DetectionEngine:
             "curl", "wget", "iex", "invoke-webrequest", "payload", "nc.exe"
         ])
 
-        # Allowlist domain — lệnh truy cập domain này sẽ không bị flag
         self.allowed_domains = det_cfg.get("allowed_domains", [
             "github.com", "viettel.com.vn", "localhost", "127.0.0.1", "pypi.org", "npm"
         ])
@@ -36,8 +35,6 @@ class DetectionEngine:
     def _evaluate_risk(self, incident):
         sysmon_event = incident.get("sysmon_event", {})
 
-        # Incident chỉ từ AI Telemetry (Prompt/Tool/Response) — không có Sysmon event
-        # -> giữ nguyên điểm gốc từ Monitor, không chấm lại theo cmdline rỗng
         if not sysmon_event:
             score = (incident.get("prompt_analysis", {}).get("injection_score")
                      or incident.get("tool_analysis", {}).get("risk_score")
@@ -56,10 +53,8 @@ class DetectionEngine:
 
         cmdline = sysmon_event.get("CommandLine", "").lower()
 
-        # Fix: Tránh bypass substring (vd: evil-github.com chứa github.com)
         import re
         for domain in self.allowed_domains:
-            # Regex kiểm tra word boundary hoặc dấu slash xung quanh domain
             pattern = r'(?i)\b' + re.escape(domain) + r'\b'
             if re.search(pattern, cmdline):
                 incident["severity"] = "LOW"
@@ -77,9 +72,8 @@ class DetectionEngine:
             incident["severity"] = "CRITICAL"
             incident["matched_rules"] = matched_rules
             logger.warning("CẢNH BÁO MỨC ĐỘ CRITICAL: %s", incident['incident_id'])
-            logger.warning("   Công thức: Rule(%d) + Process(%d) + Net(%d) + Corr(%d) + Monitor(%d) = %d điểm",
-                         details['rule'], details['process'], details['network'],
-                         details['correlation'], details.get('monitor_bonus', 0), score)
+            logger.warning("   Công thức: Base(%d) x Conf(%.2f) x Context(%.2f) = %d điểm",
+                         details['base_severity'], details['confidence'], details['context_multiplier'], score)
             logger.warning("   Dấu hiệu: %s", ', '.join(matched_rules))
             logger.warning("   CommandLine: %s", cmdline)
 
@@ -90,7 +84,6 @@ class DetectionEngine:
             incident["severity"] = severity
             logger.info("Incident %s (Severity: %s, Score: %d/100).", incident['incident_id'], severity, score)
         
-        # LUÔN ĐẨY VÀO QUEUE ĐỂ HIỂN THỊ LÊN DASHBOARD VÀ CHẠY NLP REPORT
         self.action_queue.put(incident)
 
     def _process_queue(self):

@@ -6,99 +6,114 @@ logger = logging.getLogger("EDR.RiskScoring")
 
 
 class RiskScoringEngine:
-    """Đánh giá rủi ro incident dựa trên: Rule + Process + Network + Correlation + Monitor Bonus."""
+
 
     def __init__(self):
-        weights = config_loader.get("risk_weights", default={})
         det_cfg = config_loader.get("detection", default={})
-
         self.critical_threshold = det_cfg.get("critical_threshold", 60)
-        self.rule_severity_max = weights.get("rule_severity_max", 20)
-        self.process_weight_ps = weights.get("process_weight_powershell", 20)
-        self.process_weight_cmd = weights.get("process_weight_cmd", 10)
-        self.network_activity_score = weights.get("network_activity", 20)
-        self.correlation_confidence_score = weights.get("correlation_confidence", 30)
-        self.prompt_injection_bonus = weights.get("prompt_injection_bonus", 15)
-        self.tool_anomaly_bonus = weights.get("tool_anomaly_bonus", 10)
-        self.response_disclosure_bonus = weights.get("response_disclosure_bonus", 10)
+
+        risk_cfg = config_loader.get("risk_scoring", default={})
+        
+        base = risk_cfg.get("base_severity", {})
+        self.base_ps = base.get("powershell", 70)
+        self.base_cmd = base.get("cmd", 60)
+        self.base_kw = base.get("suspicious_keyword", 80)
+        self.base_unknown = base.get("default_unknown", 20)
+        
+        ctx = risk_cfg.get("context_multiplier", {})
+        self.ctx_net = ctx.get("external_network", 1.5)
+        self.ctx_inj = ctx.get("prompt_injection", 1.4)
+        self.ctx_tool = ctx.get("tool_anomaly", 1.3)
+        self.ctx_data = ctx.get("data_disclosure", 1.5)
+        self.ctx_dev = ctx.get("human_dev_override", 0.3)
+        
+        conf = risk_cfg.get("confidence_weights", {})
+        self.conf_time = conf.get("time_match", 0.4)
+        self.conf_sem = conf.get("semantic_match", 0.3)
+        self.conf_sess = conf.get("session_match", 0.3)
 
     def evaluate(self, incident: Dict[str, Any], cmdline: str, image: str,
                  ai_event: Dict[str, Any], dangerous_keywords: List[str]) -> Tuple[int, str, List[str], Dict[str, int]]:
-        """Trả về (total_score, severity, matched_rules, score_details)."""
-        rule_severity = 0
-        process_weight = 0
-        network_activity = 0
-        correlation_confidence = 0
-        monitor_bonus = 0
+        
+        base_severity = 0
+        context_multiplier = 1.0
         matched_rules = []
 
-        # Keyword matching
+
+        if "powershell" in image:
+            base_severity = max(base_severity, self.base_ps)
+            matched_rules.append("Process: PowerShell")
+        elif "cmd.exe" in image:
+            base_severity = max(base_severity, self.base_cmd)
+            matched_rules.append("Process: CMD")
+
         matched_keywords = [kw for kw in dangerous_keywords if kw in cmdline]
         if matched_keywords:
-            rule_severity = self.rule_severity_max
+            base_severity = max(base_severity, self.base_kw)
             for kw in matched_keywords:
                 matched_rules.append(f"Suspicious Keyword: {kw}")
 
-        # Process type
-        if "powershell" in image:
-            process_weight = self.process_weight_ps
-            matched_rules.append("Process: PowerShell")
-        elif "cmd.exe" in image:
-            process_weight = self.process_weight_cmd
-            matched_rules.append("Process: CMD")
+        if base_severity == 0:
+            base_severity = self.base_unknown
 
-        # Network
+
         if any(nw in cmdline for nw in ["http", "ftp", "curl", "wget", "invoke-webrequest"]):
-            network_activity = self.network_activity_score
-            matched_rules.append("Network: Outbound Comm")
+            context_multiplier = max(context_multiplier, self.ctx_net)
+            matched_rules.append(f"Context: External Network (x{self.ctx_net})")
 
-        # AI Agent correlation
-        agent = ai_event.get("agent", "")
-        if agent and agent != "Background Script/AI" and agent != "Unknown Agent":
-            correlation_confidence = self.correlation_confidence_score
-            matched_rules.append("Correlation: Confirmed AI Match")
-
-        # PromptMonitor bonus
         prompt_analysis = incident.get("prompt_analysis", {})
         if prompt_analysis.get("is_injection"):
-            injection_score = prompt_analysis.get("injection_score", 0)
-            if injection_score >= 40:
-                monitor_bonus += self.prompt_injection_bonus
-                matched_rules.append(f"PromptMonitor: Injection (score={injection_score})")
+            context_multiplier = max(context_multiplier, self.ctx_inj)
+            matched_rules.append(f"Context: Prompt Injection (x{self.ctx_inj})")
 
-        # ToolMonitor bonus
         tool_analysis = incident.get("tool_analysis", {})
         if tool_analysis.get("has_anomaly"):
-            tool_risk = tool_analysis.get("risk_score", 0)
-            if tool_risk >= 30:
-                monitor_bonus += self.tool_anomaly_bonus
-                matched_rules.append(f"ToolMonitor: Anomaly (score={tool_risk})")
+            context_multiplier = max(context_multiplier, self.ctx_tool)
+            matched_rules.append(f"Context: Tool Anomaly (x{self.ctx_tool})")
 
-        # ResponseMonitor bonus
         response_analysis = incident.get("response_analysis", {})
         if response_analysis.get("has_sensitive_data"):
-            disclosure_score = response_analysis.get("disclosure_score", 0)
-            if disclosure_score >= 30:
-                monitor_bonus += self.response_disclosure_bonus
-                matched_rules.append(f"ResponseMonitor: Disclosure (score={disclosure_score})")
+            context_multiplier = max(context_multiplier, self.ctx_data)
+            matched_rules.append(f"Context: Data Disclosure (x{self.ctx_data})")
 
-        total_risk_score = rule_severity + process_weight + network_activity + correlation_confidence + monitor_bonus
 
-        if total_risk_score >= self.critical_threshold:
+        if "cursor" in image.lower() and not ai_event:
+            context_multiplier = min(context_multiplier, self.ctx_dev)
+            matched_rules.append(f"Context: Human Dev Override (x{self.ctx_dev})")
+
+
+        confidence = 0.0
+        agent = ai_event.get("agent", "")
+        if agent and agent not in ["Background Script/AI", "Unknown Agent"]:
+
+            time_match = 1.0
+            semantic_match = 0.8
+            session_match = 1.0
+            
+            confidence = (self.conf_time * time_match) + (self.conf_sem * semantic_match) + (self.conf_sess * session_match)
+            matched_rules.append(f"Causal Confidence: High ({confidence:.2f})")
+        else:
+            confidence = 0.5
+            matched_rules.append("Causal Confidence: Low/Uncorrelated (0.5)")
+
+
+        final_risk = base_severity * confidence * context_multiplier
+        final_risk = min(100, int(final_risk))
+
+        if final_risk >= self.critical_threshold:
             severity = "CRITICAL"
-        elif total_risk_score >= 30:
+        elif final_risk >= 30:
             severity = "MEDIUM"
         else:
             severity = "LOW"
 
         score_details = {
-            "rule": rule_severity,
-            "process": process_weight,
-            "network": network_activity,
-            "correlation": correlation_confidence,
-            "monitor_bonus": monitor_bonus,
+            "base_severity": base_severity,
+            "confidence": confidence,
+            "context_multiplier": context_multiplier,
+            "rule": 0, "process": 0, "network": 0, "correlation": 0
         }
 
-        logger.debug("Risk Score: %d (%s) — %s", total_risk_score, severity, score_details)
+        logger.debug("Probabilistic Risk: %d (%s) — %s", final_risk, severity, score_details)
 
-        return total_risk_score, severity, matched_rules, score_details
+        return final_risk, severity, matched_rules, score_details

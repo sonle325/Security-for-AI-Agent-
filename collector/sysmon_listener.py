@@ -40,11 +40,11 @@ class SysmonListener:
                     if not self._is_whitelisted(image):
                         self.event_queue.put(normalized_event)
             except Exception:
-                pass
+                logger.exception("Failed to process Sysmon event")
 
     def _listen_loop(self):
         channel_path = "Microsoft-Windows-Sysmon/Operational"
-        query = "*"
+        query = "*[System[(EventID=1 or EventID=3 or EventID=11 or EventID=13 or EventID=22)]]"
 
         while self.running:
             try:

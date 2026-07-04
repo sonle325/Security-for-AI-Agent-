@@ -46,16 +46,16 @@ class TestRiskScoringEngine(unittest.TestCase):
             "prompt_analysis": {"is_injection": True, "injection_score": 80},
         }
         score1, _, _, _ = self.scorer.evaluate(
-            incident, cmdline='powershell curl http://evil.com',
-            image="powershell.exe", ai_event={"agent": "Cursor"},
+            incident, cmdline='echo hello',
+            image="cmd.exe", ai_event={"agent": "Cursor"},
             dangerous_keywords=self.dangerous_kw
         )
 
         # Compare with incident without prompt_analysis
         incident2 = {"sysmon_event": {}, "ai_event": {"agent": "Cursor"}}
         score2, _, _, _ = self.scorer.evaluate(
-            incident2, cmdline='powershell curl http://evil.com',
-            image="powershell.exe", ai_event={"agent": "Cursor"},
+            incident2, cmdline='echo hello',
+            image="cmd.exe", ai_event={"agent": "Cursor"},
             dangerous_keywords=self.dangerous_kw
         )
         self.assertGreater(score1, score2)
@@ -72,7 +72,7 @@ class TestRiskScoringEngine(unittest.TestCase):
             ai_event={}, dangerous_keywords=self.dangerous_kw
         )
         rule_strs = " ".join(rules).lower()
-        self.assertIn("toolmonitor", rule_strs)
+        self.assertIn("tool anomaly", rule_strs)
 
     def test_response_disclosure_bonus(self):
         """Incident with response_analysis -> bonus."""
@@ -86,7 +86,7 @@ class TestRiskScoringEngine(unittest.TestCase):
             ai_event={}, dangerous_keywords=self.dangerous_kw
         )
         rule_strs = " ".join(rules).lower()
-        self.assertIn("responsemonitor", rule_strs)
+        self.assertIn("data disclosure", rule_strs)
 
 
 if __name__ == "__main__":

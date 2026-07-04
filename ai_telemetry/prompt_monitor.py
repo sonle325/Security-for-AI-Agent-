@@ -6,7 +6,7 @@ from typing import Dict, Any, List, Tuple
 class PromptMonitor:
     """Phát hiện Prompt Injection trong prompt của AI Agent."""
 
-    # (pattern_name, regex, weight)
+
     INJECTION_PATTERNS: List[Tuple[str, str, int]] = [
         ("instruction_override",
          r"(?i)(ignore|disregard|forget|override|bypass)\s+(all\s+)?(previous|prior|above|earlier|original)\s+(instructions?|rules?|guidelines?|prompts?)",

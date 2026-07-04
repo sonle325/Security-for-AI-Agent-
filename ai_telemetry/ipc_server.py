@@ -40,7 +40,6 @@ class IPCTelemetryServer:
         if not isinstance(event, dict):
             return None
             
-        # Xác thực Token chống Local Fake Event Injection
         if event.get("auth_token") != self.AUTH_TOKEN:
             logger.warning("Cảnh báo: Bắt được IPC event thiếu Auth Token hợp lệ!")
             return None
@@ -53,7 +52,10 @@ class IPCTelemetryServer:
             event = self.response_monitor.analyze(event)
         elif event_type in ("tool_invocation", "tool_call", "tool"):
             event = self.tool_monitor.analyze(event)
-        elif event_type == "agent_action" and (event.get("tool_type") or event.get("tool_name")):
+        elif event_type == "agent_action" and (
+            event.get("tool_type") or event.get("tool_name") or 
+            event.get("tool") or event.get("raw_command") or event.get("action")
+        ):
             event = self.tool_monitor.analyze(event)
 
         normalized = EventNormalizer.normalize(event)

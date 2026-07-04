@@ -7,6 +7,7 @@ import shlex
 import os
 from datetime import timezone, timedelta
 import config_loader
+from ai_telemetry.deduplicator import TelemetryDeduplicator
 
 logger = logging.getLogger("EDR.Correlation")
 
@@ -23,11 +24,9 @@ class CorrelationEngine:
         self.ai_window = []
         self.incident_counter = 1
 
-        # session_id -> list of ai_events
         self.session_events = {}
-        
-        # Lock để đồng bộ hóa luồng khi đọc/ghi vào RAM buffer
         self.buffer_lock = threading.Lock()
+        self.deduplicator = TelemetryDeduplicator()
 
         corr_cfg = config_loader.get("correlation", default={})
         self.time_window = corr_cfg.get("time_window_seconds", 30)
@@ -39,7 +38,6 @@ class CorrelationEngine:
             "base64", "-enc", "downloadstring", "bypass"
         ])
 
-        # Whitelist IDE processes — tránh false positive khi IDE spawn shell
         self.whitelist_parent_images = config_loader.get("whitelist_parent_images", default=[
             "antigravity.exe", "language_server_windows_x64.exe", "code.exe", "cursor.exe",
             "idea64.exe", "pycharm64.exe", "devenv.exe", "copilot.exe"
@@ -51,56 +49,30 @@ class CorrelationEngine:
         if not parent_image:
             return False
         import ntpath
-        # Sử dụng ntpath để đảm bảo luôn parse đúng Windows path kể cả khi chạy test trên Linux/Mac
-        parent_basename = ntpath.basename(parent_image).lower()
-        return parent_basename in self.whitelist_parent_images
+        return ntpath.basename(parent_image).lower() in self.whitelist_parent_images
 
     def _is_keyword_in_string_literal(self, cmdline: str, keyword: str) -> bool:
-        """
-        Kiểm tra keyword có nằm trong string literal (dấu nháy) hay không.
-        Sử dụng shlex để parse chính xác theo ngữ nghĩa shell thay vì đếm ký tự thô.
-        """
         keyword_lower = keyword.lower()
         if keyword_lower not in cmdline.lower():
             return False
 
         try:
-            # Parse cmdline thành các token (giống như Bash/PS parse)
             tokens = shlex.split(cmdline, posix=False)
-            
-            # Lọc ra các token thực sự là string literal (bắt đầu bằng " hoặc ')
-            # Nếu keyword chỉ xuất hiện trong string literal này -> return True
-            for token in tokens:
-                if token.startswith('"') or token.startswith("'"):
-                    if keyword_lower in token.lower():
-                        # Kiểm tra xem keyword có tồn tại bên ngoài các chuỗi này không
-                        # (Cách đơn giản: nếu parse shlex mà token không có quote vẫn chứa keyword)
-                        pass
-
-            # Phân tích kỹ hơn: 
-            # Xóa các chuỗi literal hợp lệ khỏi cmdline gốc, 
-            # nếu sau đó keyword không còn -> nó hoàn toàn nằm trong string literal.
             cleaned_cmdline = cmdline
             for token in tokens:
                 if (token.startswith('"') and token.endswith('"')) or (token.startswith("'") and token.endswith("'")):
                     cleaned_cmdline = cleaned_cmdline.replace(token, "")
             
-            if keyword_lower not in cleaned_cmdline.lower():
-                return True
-                
-            return False
+            return keyword_lower not in cleaned_cmdline.lower()
         except ValueError:
-            # Nếu shlex fail (vd: thiếu dấu nháy đóng), fallback về False (luôn coi là nguy hiểm)
             return False
 
     def _parse_utc_time(self, time_str: str) -> datetime.datetime:
-        """Normalize timestamp từ Sysmon/AI Agent về UTC datetime."""
         if not time_str or not isinstance(time_str, str):
             return datetime.datetime.min.replace(tzinfo=timezone.utc)
         try:
             normalized = time_str.strip().replace("Z", "+00:00")
 
-            # Sysmon trả 7 chữ số thập phân, Python chỉ hỗ trợ 6 → cắt bớt
             if "." in normalized:
                 dot_pos = normalized.index(".")
                 plus_pos = normalized.find("+", dot_pos)
@@ -128,14 +100,19 @@ class CorrelationEngine:
 
     def _process_queues(self):
         while self.running:
-            # Thu thập AI events và Sysmon events
+
             new_ai_events = []
             while not self.ai_event_queue.empty():
                 try:
                     event = self.ai_event_queue.get_nowait()
-                    new_ai_events.append(event)
-                    self._check_ai_event_anomalies(event)
                     self.ai_event_queue.task_done()
+                    
+                    deduped_event = self.deduplicator.process(event)
+                    if not deduped_event:
+                        continue
+                        
+                    new_ai_events.append(deduped_event)
+                    self._check_ai_event_anomalies(deduped_event)
                 except queue.Empty:
                     break
 
@@ -151,7 +128,6 @@ class CorrelationEngine:
 
             now = datetime.datetime.now(timezone.utc)
             
-            # Cập nhật buffer dưới sự bảo vệ của Lock để tránh Race Condition
             with self.buffer_lock:
                 for event in new_ai_events:
                     self.ai_window.append(event)
@@ -164,22 +140,14 @@ class CorrelationEngine:
 
                 self.ai_window = self._clean_window(self.ai_window, now)
                 self.sysmon_window = self._clean_window(self.sysmon_window, now)
-
-            # Hàm _correlate bên trong đã đọc các biến, để tránh block quá lâu, 
-            # chúng ta có thể gọi _correlate đồng bộ, hoặc tự nó khóa khi cần. 
-            # Tuy nhiên, do _process_queues là thread duy nhất thực thi _correlate, 
-            # race condition chủ yếu xảy ra nếu có phương thức khác truy cập.
-            # Chúng ta sẽ đưa _correlate vào Lock nếu cần, nhưng ở đây
-            # chỉ cần khóa khi thao tác trên mảng buffer:
-            with self.buffer_lock:
+                
                 self._correlate()
                 
             time.sleep(0.5)
 
     def _check_ai_event_anomalies(self, event: dict):
-        """Tạo incident tự động khi Monitor phát hiện mức HIGH/CRITICAL (không cần đợi Sysmon)."""
 
-        # Prompt injection
+
         prompt_analysis = event.get("prompt_analysis", {})
         if prompt_analysis.get("is_injection") and prompt_analysis.get("risk_level") in ("CRITICAL", "HIGH"):
             incident_id = f"INC-{self.incident_counter:04d}"
@@ -200,7 +168,7 @@ class CorrelationEngine:
             self.incident_queue.put(incident)
             event["_correlated"] = True
 
-        # Tool anomaly
+
         tool_analysis = event.get("tool_analysis", {})
         if tool_analysis.get("has_anomaly") and tool_analysis.get("risk_level") in ("CRITICAL", "HIGH"):
             incident_id = f"INC-{self.incident_counter:04d}"
@@ -220,7 +188,7 @@ class CorrelationEngine:
             self.incident_queue.put(incident)
             event["_correlated"] = True
 
-        # Response data disclosure
+
         response_analysis = event.get("response_analysis", {})
         if response_analysis.get("has_sensitive_data") and response_analysis.get("risk_level") in ("CRITICAL", "HIGH"):
             incident_id = f"INC-{self.incident_counter:04d}"
@@ -241,7 +209,6 @@ class CorrelationEngine:
             event["_correlated"] = True
 
     def _correlate(self):
-        """Liên kết AI event và Sysmon event theo thời gian + tool context."""
         for ai_evt in self.ai_window:
             if ai_evt.get("_correlated"):
                 continue
@@ -249,6 +216,14 @@ class CorrelationEngine:
             ai_time = self._parse_utc_time(ai_evt.get("timestamp", ""))
             ai_tool = ai_evt.get("tool", "").lower()
             ai_session = ai_evt.get("session_id", "")
+            
+            mcp_args = ""
+            if ai_evt.get("event_type") == "mcp_tool_call":
+                params = ai_evt.get("mcp_params", {})
+                args_dict = params.get("arguments", {})
+                mcp_args = " ".join(str(v) for v in args_dict.values()).lower()
+            elif ai_evt.get("event_type") == "mcp_resource_read":
+                mcp_args = ai_evt.get("target", "").lower()
 
             for sys_evt in self.sysmon_window:
                 if sys_evt.get("_correlated") or sys_evt.get("EventID") != 1:
@@ -257,14 +232,27 @@ class CorrelationEngine:
                 sys_time = self._parse_utc_time(sys_evt.get("TimestampUTC", ""))
                 sys_image = sys_evt.get("Image", "").lower()
 
-                # |Δt| ≤ threshold — dùng giá trị tuyệt đối vì Sysmon log có thể đến trước AI log
+
                 if sys_time == datetime.datetime.min.replace(tzinfo=timezone.utc) or \
                    ai_time == datetime.datetime.min.replace(tzinfo=timezone.utc):
                     continue
 
                 time_diff = abs((sys_time - ai_time).total_seconds())
 
-                if time_diff <= self.delta_t and ai_tool in sys_image:
+                is_match = False
+                if time_diff <= self.delta_t:
+                    sys_cmdline = sys_evt.get("CommandLine", "").lower()
+                    if mcp_args and sys_cmdline:
+                        mcp_words = {w for w in mcp_args.split() if len(w) > 3}
+                        sys_words = set(sys_cmdline.split())
+                        
+                        if mcp_words.intersection(sys_words) or mcp_args in sys_cmdline:
+                            is_match = True
+                            
+                    if not is_match and ai_tool in sys_image:
+                        is_match = True
+
+                if is_match:
                     incident_id = f"INC-{self.incident_counter:04d}"
                     self.incident_counter += 1
 
@@ -288,7 +276,7 @@ class CorrelationEngine:
                     ai_evt["_correlated"] = True
                     sys_evt["_correlated"] = True
 
-        # Bắt PowerShell/CMD đáng ngờ chạy ngầm (không có AI event tương ứng)
+
         for sys_evt in self.sysmon_window:
             if sys_evt.get("_correlated") or sys_evt.get("EventID") != 1:
                 continue
@@ -304,7 +292,7 @@ class CorrelationEngine:
                 has_suspicious_keyword = False
                 for kw in self.suspicious_cmd_keywords:
                     if kw in cmdline:
-                        # Bỏ qua nếu keyword chỉ nằm trong string literal (vd: commit message)
+
                         if self._is_keyword_in_string_literal(sys_evt.get("CommandLine", ""), kw):
                             continue
                         has_suspicious_keyword = True
@@ -332,9 +320,7 @@ class CorrelationEngine:
                 sys_evt["_correlated"] = True
 
     def get_session_chain(self, session_id: str) -> list:
-        """Trả về events thuộc 1 session — phục vụ Dashboard vẽ Attack Chain."""
         with self.buffer_lock:
-            # Trả về bản sao để tránh bị thay đổi trong quá trình duyệt bên ngoài
             return list(self.session_events.get(session_id, []))
 
     def start(self):

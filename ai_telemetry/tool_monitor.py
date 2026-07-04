@@ -68,7 +68,6 @@ class ToolMonitor:
                     anomalies.append({"type": "MASS_FILE_ENUMERATION", "detail": f"{len(unique)} files/{self.mass_enum_window}s"})
                     risk_score += 25
 
-        # Terminal command đáng ngờ
         if tool_type in ("terminal_execute", "shell_command"):
             cmd_lower = target.lower()
             hits = [kw for kw in self.SUSPICIOUS_COMMANDS if kw in cmd_lower]

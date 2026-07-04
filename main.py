@@ -1,9 +1,4 @@
-"""AI Runtime Security — EDR Engine entry point.
-
-Khởi động toàn bộ pipeline 8 tầng: Sysmon Collector, AI Telemetry IPC,
-Correlation Engine, Detection Engine, Containment, NLP Analyzer, Neo4j Graph.
-Chạy bằng quyền Administrator để Sysmon Listener có thể đọc Event Log.
-"""
+"""AI Runtime Security — EDR Engine entry point."""
 
 import time
 import queue
@@ -18,6 +13,9 @@ from detector.rule_engine import DetectionEngine
 from detector.containment import ContainmentEngine
 from graph.graph_builder import Neo4jIncidentGraph
 from analyzer.nlp_classifier import AISecurityAnalyzer
+
+from mcp_gateway.gateway import MCPSecurityGateway
+from lsp_sniffer.sniffer import LSPSniffer
 
 
 def setup_logging():
@@ -57,7 +55,6 @@ def main():
     incident_queue = queue.Queue(maxsize=1000)
     action_queue = queue.Queue(maxsize=1000)
 
-    # Fan-out: clone incident tới 3 consumer queue
     neo4j_queue = queue.Queue(maxsize=1000)
     nlp_queue = queue.Queue(maxsize=1000)
     containment_queue = queue.Queue(maxsize=1000)
@@ -84,17 +81,26 @@ def main():
     neo4j_graph = Neo4jIncidentGraph(neo4j_queue)
     nlp_analyzer = AISecurityAnalyzer(nlp_queue)
 
-    # Khởi động downstream trước
+    mcp_gateway = MCPSecurityGateway(ai_event_queue)
+    lsp_sniffer = LSPSniffer(ai_event_queue)
+
     nlp_analyzer.start()
     neo4j_graph.start()
     containment_engine.start()
     detection_engine.start()
     correlation_engine.start()
     sysmon_listener.start()
+    
     ipc_server.start()
+    mcp_gateway.start()
+    lsp_sniffer.start()
 
     logger.info("EDR Engine is now running.")
     logger.info("IPC Telemetry listening on \\\\.\\pipe\\ai_edr_telemetry and 127.0.0.1:9999")
+    if mcp_gateway.enabled:
+        logger.info("MCP Security Gateway proxy listening on 127.0.0.1:%d", mcp_gateway.listen_port)
+    if lsp_sniffer.enabled:
+        logger.info("LSP Sniffer monitoring OS processes")
     logger.info("Logs are being written to edr_engine.log")
     logger.info("Press [Ctrl+C] to exit.")
 
@@ -104,6 +110,8 @@ def main():
 
     except KeyboardInterrupt:
         logger.info("Shutting down EDR Engine...")
+        lsp_sniffer.stop()
+        mcp_gateway.stop()
         ipc_server.stop()
         sysmon_listener.stop()
         correlation_engine.stop()

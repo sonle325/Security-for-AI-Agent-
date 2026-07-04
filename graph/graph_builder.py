@@ -46,7 +46,6 @@ class Neo4jIncidentGraph:
             try:
                 incident = self.action_queue.get(timeout=1.0)
 
-                # MITRE Mapping
                 mitre = set()
                 inc_type = incident.get("incident_type", "")
                 sys_evt = incident.get("sysmon_event", {})

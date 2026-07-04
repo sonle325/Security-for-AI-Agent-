@@ -7,8 +7,10 @@ incident_graph_queries.txt
 .env
 alert_queue/
 .vscode/
-logs/dashboard_feed.jsonl
+logs/
 reports/RPT-*.json
 *.egg-info/
 dist/
 build/
+.pytest_cache/
+.DS_Store
