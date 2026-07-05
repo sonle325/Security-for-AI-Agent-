@@ -1,4 +1,4 @@
-"""MCP Security Gateway — Transparent proxy giữa AI Agent và MCP Server."""
+"""MCP Security Gateway — Transparent proxy between AI Agent and MCP Server."""
 
 import asyncio
 import json
@@ -148,7 +148,9 @@ class MCPSecurityGateway:
                 upstream_writer.close()
 
     async def _relay_client_to_upstream(self, client_reader: asyncio.StreamReader,
-                                       upstream_writer: asyncio.StreamWriter):
+                                       upstream_writer: asyncio.StreamWriter,
+                                       client_writer: asyncio.StreamWriter):
+        """Intercept and analyze requests from Agent to Server."""
         frame_reader = StdioFrameReader()
 
         try:
@@ -174,6 +176,7 @@ class MCPSecurityGateway:
                         self._emit_blocked_event(msg, verdict, action)
                         
                         if action == "deny":
+                            # Block logic
                             blocked_resp = MCPProtocol.make_blocked_response(
                                 msg.id,
                                 reason="; ".join(verdict.reasons),
@@ -186,12 +189,14 @@ class MCPSecurityGateway:
                             continue
                             
                         elif action == "delay":
+                            # Bidirectional relay
                             logger.info("Delaying tool call %s for 30s...", msg.get_tool_name())
                             await asyncio.sleep(30)
                             
                         elif action == "substitute":
                             logger.info("Substituting tool call %s response...", msg.get_tool_name())
-                            if msg.id is not None:
+                            # Send error response to Agent
+                            if should_block and msg.id is not None:
                                 self._substituted_requests.add(msg.id)
 
                     else:
@@ -212,6 +217,7 @@ class MCPSecurityGateway:
 
     async def _relay_upstream_to_client(self, upstream_reader: asyncio.StreamReader,
                                        client_writer: asyncio.StreamWriter):
+        """Intercept and analyze responses from Server to Agent."""
         frame_reader = StdioFrameReader()
 
         try:
@@ -269,10 +275,13 @@ class MCPSecurityGateway:
                     line, buffer = buffer.split(b"\n", 1)
                     line_str = line.decode("utf-8", errors="replace").strip()
                     if not line_str:
+                        # DO NOT forward to upstream
                         continue
 
+                    # Allow: forward upstream
                     msg = MCPProtocol.parse_message(line_str)
                     if not msg:
+                        # Unable to parse -> forward raw
                         continue
 
                     verdict = self._analyze_request(msg)

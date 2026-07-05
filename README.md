@@ -53,7 +53,7 @@ Dự án kết hợp: giám sát Kernel-level (Sysmon), lưu vết Đồ thị T
 Hệ thống gồm **8 tầng (Layers)**, với sự thay đổi cốt lõi ở Tầng 1 để giải quyết bài toán "Vùng Mù" của AI Agent.
 
 ```
-[ IDE / Code Editor ] <──(LSP Sniffer)──> [ AI Agent (Cursor, Copilot, ...) ]
+[ IDE / Code Editor ] <──(LSP Interceptor)──> [ Language Server / AI Extension ]
                                                          │
                                                   (MCP Protocol)
                                                          │
@@ -66,13 +66,13 @@ Hệ thống gồm **8 tầng (Layers)**, với sự thay đổi cốt lõi ở 
 
 #### Tầng 1: AI Telemetry Collection (Giải quyết Vùng Mù)
 Thu thập hành vi của AI Agent qua 3 luồng:
-1. **MCP Security Gateway (MỚI - MANDATORY)**: Transparent proxy đứng giữa AI Agent và các MCP Server. Intercept toàn bộ giao thức JSON-RPC (Model Context Protocol), phân tích `tools/call` và `resources/read`. Block real-time các tool call nguy hiểm trước khi chúng được thực thi.
-2. **LSP Sniffer (MỚI - PASSIVE)**: Giám sát ở tầng OS (process list, named pipes) quá trình giao tiếp giữa IDE và AI Extension. Phát hiện các child process do AI sinh ra (như spawn shell, tải file) mà không cần AI tự nguyện báo cáo.
+1. **MCP Security Gateway**: Transparent proxy đứng giữa AI Agent và các MCP Server. Intercept toàn bộ giao thức JSON-RPC (Model Context Protocol), phân tích `tools/call` và `resources/read`. Block real-time các tool call nguy hiểm trước khi chúng được thực thi.
+2. **LSP Protocol Interceptor**: Transparent Proxy đứng giữa IDE và Language Server, chặn bắt trực tiếp giao thức LSP (JSON-RPC 2.0). Phân tích các method nguy hiểm như `workspace/executeCommand` và `workspace/applyEdit` để phát hiện AI Agent thực thi lệnh hoặc sửa file nhạy cảm theo thời gian thực.
 3. **SDK Client (Fallback)**: Dành cho các AI Agent tự nguyện tích hợp qua Named Pipe hoặc TCP.
 
 #### Tầng 2: OS/Sysmon Collector
 Kiến trúc của dự án giải quyết bài toán mâu thuẫn giữa "Ý định" (Intent) và "Hành động" (Action):
-1. **Thu thập kép (Dual Telemetry):** Hệ thống song song thu thập 2 luồng dữ liệu. Tầng AI Telemetry bắt lấy **Ý định** của AI Agent (Prompt, Tool Call, Response) thông qua 3 lớp (MCP Gateway, LSP Sniffer, IPC Channel). Tầng Sysmon bắt lấy **Hành động thực tế** diễn ra trên Hệ điều hành (Tạo Process, Kết nối mạng, Ghi Registry).
+1. **Thu thập kép (Dual Telemetry):** Hệ thống song song thu thập 2 luồng dữ liệu. Tầng AI Telemetry bắt lấy **Ý định** của AI Agent (Prompt, Tool Call, Response) thông qua 3 lớp (MCP Gateway, LSP Interceptor, IPC Channel). Tầng Sysmon bắt lấy **Hành động thực tế** diễn ra trên Hệ điều hành (Tạo Process, Kết nối mạng, Ghi Registry).
 2. **Khớp nối (Correlation):** Nếu AI gọi một tool (VD: `terminal.execute`), và trong vòng 2 giây (Sliding Window), OS ghi nhận một Process được tạo ra với nội dung tương đồng, Correlation Engine sẽ ghép chúng lại thành một **Incident** hoàn chỉnh mang cả Context của AI lẫn OS.
 3. **Chấm điểm & Ngăn chặn (Detection & Response):** Incident được chấm điểm xác suất (Probabilistic Risk = Base Severity × Confidence × Context Multiplier). Nếu vượt ngưỡng `CRITICAL`, EDR lập tức bóp cò (Containment) bằng cách Kill Process ngay ở cấp OS.
 4. **Hậu kiểm (Analysis & Visualization):** Dữ liệu được đẩy bất đồng bộ cho mô hình NLP DeBERTa để giải thích ngôn ngữ tự nhiên (Explainability) và xuất ra luồng dữ liệu đồ thị (Web Dashboard) giúp SOC Analyst theo dõi chuỗi tấn công Attack Chain.

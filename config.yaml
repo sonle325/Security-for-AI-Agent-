@@ -57,20 +57,26 @@ telemetry:
   deduplication:
     enabled: true
     window_ms: 500
-    priority: ["mcp_gateway", "lsp_sniffer", "ipc_sdk"]
+    priority: ["mcp_gateway", "lsp_interceptor", "ipc_sdk"]
 
-# --- LSP Sniffer ---
-# Passive monitor AI-related processes ở tầng OS.
-# Không cần AI Agent hợp tác — giám sát trực tiếp process tree.
-lsp_sniffer:
+# --- LSP Protocol Interceptor ---
+# Transparent proxy intercept giao thức LSP (JSON-RPC 2.0)
+# giữa IDE và Language Server. Thay thế Process Tree Sniffing.
+lsp_interceptor:
   enabled: true
-  scan_interval_seconds: 5     # Quét processes mỗi N giây
-  target_processes:            # Process names của AI coding tools
-    - "code.exe"               # VS Code
-    - "cursor.exe"             # Cursor
-    - "cursor-helper.exe"
-    - "windsurf.exe"           # Windsurf
-    - "aider"                  # Aider CLI
+  mode: "MONITOR"                # "MONITOR" (chỉ log) | "INTERCEPT" (chặn nguy hiểm)
+  listen_port: 9001              # Port cho IDE kết nối (proxy endpoint)
+  upstream_host: "127.0.0.1"
+  upstream_port: 9002            # Port thật của Language Server phía sau
+  block_threshold: 60            # Điểm rủi ro tối thiểu để chặn (khi mode=INTERCEPT)
+  dangerous_keywords:            # Từ khóa đáng ngờ trong arguments
+    - "payload"
+    - "attacker"
+    - "malware"
+    - "c2."
+    - "exfiltrate"
+    - "mimikatz"
+    - "meterpreter"
 
 # --- Neo4j Graph Database ---
 neo4j:

@@ -1,1 +1,1 @@
-# LSP Sniffer — Passive monitor for IDE ↔ AI Extension communication
+# LSP Protocol Interceptor — Transparent Proxy for IDE ↔ Language Server communication

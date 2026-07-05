@@ -15,7 +15,7 @@ from graph.graph_builder import Neo4jIncidentGraph
 from analyzer.nlp_classifier import AISecurityAnalyzer
 
 from mcp_gateway.gateway import MCPSecurityGateway
-from lsp_sniffer.sniffer import LSPSniffer
+from lsp_sniffer.lsp_interceptor import LSPProtocolInterceptor
 
 
 def setup_logging():
@@ -82,7 +82,7 @@ def main():
     nlp_analyzer = AISecurityAnalyzer(nlp_queue)
 
     mcp_gateway = MCPSecurityGateway(ai_event_queue)
-    lsp_sniffer = LSPSniffer(ai_event_queue)
+    lsp_interceptor = LSPProtocolInterceptor(ai_event_queue)
 
     nlp_analyzer.start()
     neo4j_graph.start()
@@ -93,14 +93,14 @@ def main():
     
     ipc_server.start()
     mcp_gateway.start()
-    lsp_sniffer.start()
+    lsp_interceptor.start()
 
     logger.info("EDR Engine is now running.")
     logger.info("IPC Telemetry listening on \\\\.\\pipe\\ai_edr_telemetry and 127.0.0.1:9999")
     if mcp_gateway.enabled:
         logger.info("MCP Security Gateway proxy listening on 127.0.0.1:%d", mcp_gateway.listen_port)
-    if lsp_sniffer.enabled:
-        logger.info("LSP Sniffer monitoring OS processes")
+    if lsp_interceptor.enabled:
+        logger.info("LSP Protocol Interceptor listening on 127.0.0.1:%d", lsp_interceptor.listen_port)
     logger.info("Logs are being written to edr_engine.log")
     logger.info("Press [Ctrl+C] to exit.")
 
@@ -110,7 +110,7 @@ def main():
 
     except KeyboardInterrupt:
         logger.info("Shutting down EDR Engine...")
-        lsp_sniffer.stop()
+        lsp_interceptor.stop()
         mcp_gateway.stop()
         ipc_server.stop()
         sysmon_listener.stop()

@@ -1,4 +1,4 @@
-"""MCP Protocol — JSON-RPC 2.0 message parser/serializer cho MCP transport."""
+"""MCP Protocol — JSON-RPC 2.0 message parser/serializer for MCP transport."""
 
 import json
 import logging
@@ -162,7 +162,7 @@ class MCPProtocol:
 
 
 class StdioFrameReader:
-    """Reader cho Content-Length framed messages."""
+    """Reader for Content-Length framed messages."""
 
     def __init__(self):
         self._buffer = b""
@@ -172,7 +172,7 @@ class StdioFrameReader:
         messages = []
 
         while True:
-            # Tìm header separator
+            # Find header separator
             sep_pos = self._buffer.find(MCPProtocol.HEADER_SEPARATOR)
             if sep_pos == -1:
                 break
