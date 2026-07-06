@@ -4,219 +4,571 @@
 <meta charset="UTF-8">
 <title>AI-EDR — Incident Dashboard</title>
 <meta name="description" content="AI Runtime Security EDR - Incident Graph Dashboard for SOC Investigation">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body {
-    font-family: 'Segoe UI', sans-serif;
-    background: #0d1117;
-    color: #c9d1d9;
+    font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+    background: #0a0e17;
+    color: #d1d5db;
     min-height: 100vh;
+    overflow: hidden;
   }
 
+  /* ============ SCROLLBAR ============ */
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #30363d; border-radius: 3px; }
+  ::-webkit-scrollbar-thumb:hover { background: #484f58; }
+
+  /* ============ HEADER ============ */
   .header {
-    background: linear-gradient(135deg, #161b22, #1c2333);
-    border-bottom: 1px solid #30363d;
-    padding: 16px 28px;
+    background: linear-gradient(135deg, #0f1420 0%, #141b2d 50%, #0f1420 100%);
+    border-bottom: 1px solid rgba(56, 139, 253, 0.15);
+    padding: 14px 28px;
     display: flex;
     align-items: center;
     gap: 14px;
+    backdrop-filter: blur(10px);
   }
-  .header h1 { font-size: 18px; color: #f0f6fc; font-weight: 600; }
+  .header h1 {
+    font-size: 17px;
+    color: #f0f6fc;
+    font-weight: 700;
+    letter-spacing: -0.3px;
+  }
   .badge {
-    background: #388bfd22;
-    border: 1px solid #388bfd55;
+    background: rgba(56, 139, 253, 0.12);
+    border: 1px solid rgba(56, 139, 253, 0.3);
     color: #58a6ff;
-    padding: 2px 10px;
+    padding: 3px 12px;
     border-radius: 20px;
-    font-size: 12px;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
   }
   .live-dot {
-    width: 8px; height: 8px;
+    width: 9px; height: 9px;
     background: #3fb950;
     border-radius: 50%;
     animation: blink 1.5s infinite;
+    box-shadow: 0 0 8px rgba(63, 185, 80, 0.6);
   }
   @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
+  /* ============ STATS ============ */
   .stats {
-    display: flex;
-    gap: 14px;
-    padding: 16px 28px;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 12px;
+    padding: 14px 28px;
+    background: rgba(10, 14, 23, 0.8);
   }
   .stat-card {
-    background: #161b22;
-    border: 1px solid #30363d;
-    border-radius: 8px;
-    padding: 14px 20px;
-    flex: 1;
-    min-width: 130px;
+    background: linear-gradient(145deg, rgba(22, 27, 34, 0.9), rgba(13, 17, 23, 0.9));
+    border: 1px solid rgba(48, 54, 61, 0.6);
+    border-radius: 12px;
+    padding: 14px 18px;
+    position: relative;
+    overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
   }
-  .stat-card .label { font-size: 11px; color: #8b949e; text-transform: uppercase; letter-spacing: 0.5px; }
-  .stat-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
-  .c-total  .value { color: #58a6ff; }
-  .c-crit   .value { color: #f85149; }
-  .c-high   .value { color: #d29922; }
-  .c-prompt .value { color: #bc8cff; }
-  .c-tool   .value { color: #f78166; }
-  .c-data   .value { color: #d29922; }
+  .stat-card:hover {
+    transform: translateY(-2px);
+    border-color: rgba(88, 166, 255, 0.3);
+  }
+  .stat-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    border-radius: 12px 12px 0 0;
+  }
+  .stat-card .label {
+    font-size: 11px;
+    color: #8b949e;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 600;
+  }
+  .stat-card .value {
+    font-size: 32px;
+    font-weight: 800;
+    margin-top: 6px;
+    letter-spacing: -1px;
+  }
+  .c-total::before { background: linear-gradient(90deg, #58a6ff, #388bfd); }
+  .c-total .value { color: #58a6ff; text-shadow: 0 0 20px rgba(88, 166, 255, 0.3); }
+  .c-crit::before  { background: linear-gradient(90deg, #f85149, #da3633); }
+  .c-crit  .value { color: #f85149; text-shadow: 0 0 20px rgba(248, 81, 73, 0.3); }
+  .c-high::before  { background: linear-gradient(90deg, #d29922, #e3b341); }
+  .c-high  .value { color: #d29922; text-shadow: 0 0 20px rgba(210, 153, 34, 0.3); }
+  .c-prompt::before{ background: linear-gradient(90deg, #bc8cff, #a371f7); }
+  .c-prompt .value { color: #bc8cff; text-shadow: 0 0 20px rgba(188, 140, 255, 0.3); }
+  .c-tool::before  { background: linear-gradient(90deg, #f78166, #ea6045); }
+  .c-tool  .value { color: #f78166; text-shadow: 0 0 20px rgba(247, 129, 102, 0.3); }
+  .c-data::before  { background: linear-gradient(90deg, #d29922, #e3b341); }
+  .c-data  .value { color: #d29922; text-shadow: 0 0 20px rgba(210, 153, 34, 0.3); }
 
+  /* ============ FILTER BAR ============ */
   .filter-bar {
-    padding: 8px 16px;
-    background: #0d1117;
+    padding: 8px 20px;
+    background: rgba(13, 17, 23, 0.9);
     border-bottom: 1px solid #21262d;
     display: flex; gap: 8px; align-items: center; flex-wrap: wrap;
   }
-  .filter-bar span { font-size: 11px; color: #6e7681; }
+  .filter-bar span {
+    font-size: 12px;
+    color: #6e7681;
+    font-weight: 600;
+  }
   .filter-bar button {
-    background: #21262d; border: 1px solid #30363d;
-    color: #c9d1d9; padding: 4px 12px; border-radius: 6px;
-    font-size: 11px; cursor: pointer; transition: all .15s;
+    background: rgba(33, 38, 45, 0.8);
+    border: 1px solid #30363d;
+    color: #c9d1d9;
+    padding: 5px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all .2s;
+    font-family: 'Inter', sans-serif;
   }
   .filter-bar button:hover, .filter-bar button.active {
-    background: #388bfd22; border-color: #388bfd; color: #58a6ff;
+    background: rgba(56, 139, 253, 0.15);
+    border-color: rgba(56, 139, 253, 0.5);
+    color: #58a6ff;
   }
 
-  /* Tab bar */
+  /* ============ TAB BAR ============ */
   .tab-bar {
-    display: flex; gap: 0; border-bottom: 1px solid #30363d; background: #161b22;
+    display: flex; gap: 0;
+    border-bottom: 1px solid #30363d;
+    background: #0f1420;
   }
   .tab-btn {
-    padding: 8px 18px; font-size: 12px; cursor: pointer;
-    color: #8b949e; border: none; background: transparent;
-    border-bottom: 2px solid transparent; transition: all .15s;
+    padding: 10px 22px;
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    color: #8b949e;
+    border: none;
+    background: transparent;
+    border-bottom: 2px solid transparent;
+    transition: all .2s;
+    font-family: 'Inter', sans-serif;
   }
-  .tab-btn:hover { color: #c9d1d9; }
-  .tab-btn.active { color: #58a6ff; border-bottom-color: #58a6ff; }
+  .tab-btn:hover { color: #d1d5db; background: rgba(255,255,255,0.02); }
+  .tab-btn.active {
+    color: #58a6ff;
+    border-bottom-color: #58a6ff;
+    background: rgba(56, 139, 253, 0.05);
+  }
 
-  .main { display: flex; height: calc(100vh - 230px); }
+  /* ============ MAIN LAYOUT ============ */
+  .main {
+    display: flex;
+    height: calc(100vh - 220px);
+  }
 
+  /* ============ LIST PANEL ============ */
   .list-panel {
-    width: 400px; border-right: 1px solid #30363d;
-    overflow-y: auto; flex-shrink: 0;
+    width: 320px;
+    min-width: 280px;
+    border-right: 1px solid #21262d;
+    overflow-y: auto;
+    flex-shrink: 0;
+    background: rgba(13, 17, 23, 0.5);
   }
   .list-panel h2 {
-    padding: 10px 16px; font-size: 12px; color: #8b949e;
-    background: #161b22; border-bottom: 1px solid #30363d;
-    position: sticky; top: 0; z-index: 1;
-    text-transform: uppercase; letter-spacing: 0.5px;
+    padding: 12px 16px;
+    font-size: 12px;
+    color: #8b949e;
+    background: #0f1420;
+    border-bottom: 1px solid #21262d;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 700;
   }
   .incident-item {
-    padding: 11px 16px; border-bottom: 1px solid #21262d;
-    cursor: pointer; transition: background .12s;
+    padding: 12px 16px;
+    border-bottom: 1px solid rgba(33, 38, 45, 0.6);
+    cursor: pointer;
+    transition: all .15s;
+    border-left: 3px solid transparent;
   }
-  .incident-item:hover { background: #161b22; }
-  .incident-item.selected { background: #1c2333; border-left: 3px solid #388bfd; }
-  .inc-id { font-size: 12px; font-weight: 600; color: #58a6ff; }
-  .inc-type { font-size: 11px; color: #8b949e; margin-top: 2px; }
-  .inc-ts { font-size: 11px; color: #6e7681; margin-top: 2px; }
-  .inc-session { font-size: 10px; color: #6e7681; font-family: monospace; }
+  .incident-item:hover {
+    background: rgba(22, 27, 34, 0.8);
+  }
+  .incident-item.selected {
+    background: rgba(56, 139, 253, 0.08);
+    border-left-color: #388bfd;
+  }
+  .inc-id {
+    font-size: 13px;
+    font-weight: 700;
+    color: #58a6ff;
+    letter-spacing: -0.2px;
+  }
+  .inc-type {
+    font-size: 12px;
+    color: #8b949e;
+    margin-top: 3px;
+  }
+  .inc-ts {
+    font-size: 11px;
+    color: #6e7681;
+    margin-top: 3px;
+  }
+  .inc-session {
+    font-size: 10px;
+    color: #6e7681;
+    font-family: 'JetBrains Mono', monospace;
+    margin-top: 2px;
+  }
 
+  /* ============ SEVERITY BADGES ============ */
   .sev-badge {
-    display: inline-block; padding: 1px 7px; border-radius: 10px;
-    font-size: 10px; font-weight: 600; text-transform: uppercase;
+    display: inline-block;
+    padding: 2px 9px;
+    border-radius: 10px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
   }
-  .sev-CRITICAL { background:#f8514922; color:#f85149; border:1px solid #f8514944; }
-  .sev-HIGH     { background:#d2992222; color:#d29922; border:1px solid #d2992244; }
-  .sev-MEDIUM   { background:#388bfd22; color:#58a6ff; border:1px solid #388bfd44; }
-  .sev-LOW      { background:#3fb95022; color:#3fb950; border:1px solid #3fb95044; }
-  .sev-         { background:#30363d;   color:#8b949e; border:1px solid #30363d;   }
+  .sev-CRITICAL { background: rgba(248, 81, 73, 0.15); color: #f85149; border: 1px solid rgba(248, 81, 73, 0.3); }
+  .sev-HIGH     { background: rgba(210, 153, 34, 0.15); color: #d29922; border: 1px solid rgba(210, 153, 34, 0.3); }
+  .sev-MEDIUM   { background: rgba(56, 139, 253, 0.15); color: #58a6ff; border: 1px solid rgba(56, 139, 253, 0.3); }
+  .sev-LOW      { background: rgba(63, 185, 80, 0.15); color: #3fb950; border: 1px solid rgba(63, 185, 80, 0.3); }
+  .sev-         { background: #30363d; color: #8b949e; border: 1px solid #30363d; }
 
-  .right-panel { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+  /* ============ RIGHT PANEL ============ */
+  .right-panel {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    min-width: 0;
+  }
 
+  /* ============ GRAPH CONTAINER ============ */
   #graph-container {
-    flex: 1; position: relative; overflow: hidden;
-    background: radial-gradient(ellipse at center, #161b22 0%, #0d1117 70%);
+    flex: 1;
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(ellipse at center, #111827 0%, #0a0e17 70%);
+    cursor: grab;
   }
-  svg#graph { width: 100%; height: 100%; }
+  #graph-container:active { cursor: grabbing; }
+  #graph-container svg#graph {
+    width: 100%;
+    height: 100%;
+    display: block;
+  }
+
+  /* Zoom Controls */
+  .zoom-controls {
+    position: absolute;
+    bottom: 16px;
+    right: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    z-index: 10;
+  }
+  .zoom-btn {
+    width: 36px;
+    height: 36px;
+    background: rgba(22, 27, 34, 0.9);
+    border: 1px solid #30363d;
+    border-radius: 8px;
+    color: #c9d1d9;
+    font-size: 18px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all .15s;
+    font-family: 'Inter', sans-serif;
+    backdrop-filter: blur(8px);
+  }
+  .zoom-btn:hover {
+    background: rgba(56, 139, 253, 0.2);
+    border-color: #388bfd;
+    color: #58a6ff;
+  }
+  .zoom-btn.reset-btn {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .zoom-hint {
+    position: absolute;
+    bottom: 16px;
+    left: 16px;
+    font-size: 11px;
+    color: #484f58;
+    pointer-events: none;
+    z-index: 10;
+  }
 
   #empty-msg {
-    position: absolute; top: 50%; left: 50%;
-    transform: translate(-50%,-50%);
-    text-align: center; color: #30363d; pointer-events: none;
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    text-align: center;
+    color: #30363d;
+    pointer-events: none;
   }
-  #empty-msg div:first-child { font-size: 48px; }
-  #empty-msg div:last-child  { font-size: 14px; margin-top: 8px; }
+  #empty-msg div:first-child { font-size: 56px; }
+  #empty-msg div:last-child  { font-size: 15px; margin-top: 10px; color: #484f58; }
 
-  .node-Incident    circle { fill: #f85149; stroke: #f8514966; stroke-width: 2; }
-  .node-AIAgent     circle { fill: #58a6ff; stroke: #388bfd66; stroke-width: 2; }
-  .node-Process     circle { fill: #3fb950; stroke: #3fb95066; stroke-width: 2; }
-  .node-Endpoint    circle { fill: #d29922; stroke: #d2992266; stroke-width: 2; }
-  .node-PromptEvent circle { fill: #bc8cff; stroke: #bc8cff66; stroke-width: 2; }
-  .node-NetworkConn circle { fill: #f78166; stroke: #f7816666; stroke-width: 2; }
-  .node-ToolAnomaly circle { fill: #f78166; stroke: #f7816666; stroke-width: 2; }
-  .node-DataLeak    circle { fill: #d29922; stroke: #d2992266; stroke-width: 2; }
-  .node-label { fill: #c9d1d9; font-size: 10px; text-anchor: middle; pointer-events: none; }
-  .edge-line  { stroke: #30363d; stroke-width: 1.5; marker-end: url(#arrow); }
-  .edge-label { fill: #6e7681; font-size: 9px; text-anchor: middle; }
+  /* ============ GRAPH NODES & EDGES ============ */
+  .node-Incident    circle { fill: #f85149; stroke: rgba(248, 81, 73, 0.4); stroke-width: 3; }
+  .node-AIAgent     circle { fill: #58a6ff; stroke: rgba(56, 139, 253, 0.4); stroke-width: 3; }
+  .node-Process     circle { fill: #3fb950; stroke: rgba(63, 185, 80, 0.4); stroke-width: 3; }
+  .node-Endpoint    circle { fill: #d29922; stroke: rgba(210, 153, 34, 0.4); stroke-width: 3; }
+  .node-PromptEvent circle { fill: #bc8cff; stroke: rgba(188, 140, 255, 0.4); stroke-width: 3; }
+  .node-NetworkConn circle { fill: #f78166; stroke: rgba(247, 129, 102, 0.4); stroke-width: 3; }
+  .node-ToolAnomaly circle { fill: #f78166; stroke: rgba(247, 129, 102, 0.4); stroke-width: 3; }
+  .node-DataLeak    circle { fill: #d29922; stroke: rgba(210, 153, 34, 0.4); stroke-width: 3; }
 
-  /* Timeline */
+  .node-label {
+    fill: #e6edf3;
+    font-size: 12px;
+    font-weight: 600;
+    text-anchor: middle;
+    pointer-events: none;
+    font-family: 'Inter', sans-serif;
+  }
+  .node-type-label {
+    fill: #8b949e;
+    font-size: 11px;
+    font-weight: 500;
+    text-anchor: middle;
+    pointer-events: none;
+    font-family: 'Inter', sans-serif;
+  }
+  .edge-line {
+    stroke: #30363d;
+    stroke-width: 1.8;
+    marker-end: url(#arrow);
+  }
+  .edge-label {
+    fill: #8b949e;
+    font-size: 10px;
+    font-weight: 600;
+    text-anchor: middle;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* ============ TIMELINE ============ */
   #timeline-container {
-    flex: 1; position: relative; overflow-y: auto; overflow-x: hidden;
-    background: #0d1117; padding: 20px; display: none;
+    flex: 1;
+    position: relative;
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: #0a0e17;
+    padding: 20px 24px;
+    display: none;
   }
-  .tl-title { font-size: 14px; color: #f0f6fc; font-weight: 600; margin-bottom: 16px; }
+  .tl-title {
+    font-size: 15px;
+    color: #f0f6fc;
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
   .tl-item {
-    display: flex; gap: 14px; margin-bottom: 6px; position: relative;
+    display: flex;
+    gap: 16px;
+    margin-bottom: 8px;
+    position: relative;
   }
   .tl-dot {
-    width: 12px; height: 12px; border-radius: 50%;
-    flex-shrink: 0; margin-top: 4px; position: relative; z-index: 1;
+    width: 14px; height: 14px;
+    border-radius: 50%;
+    flex-shrink: 0;
+    margin-top: 4px;
+    position: relative;
+    z-index: 1;
   }
   .tl-line {
-    position: absolute; left: 5px; top: 16px; width: 2px;
-    background: #30363d; height: calc(100% + 6px);
+    position: absolute;
+    left: 6px;
+    top: 18px;
+    width: 2px;
+    background: #21262d;
+    height: calc(100% + 8px);
   }
   .tl-item:last-child .tl-line { display: none; }
   .tl-content { flex: 1; }
-  .tl-time { font-size: 10px; color: #6e7681; font-family: monospace; }
-  .tl-label { font-size: 12px; color: #c9d1d9; margin-top: 2px; }
-  .tl-detail { font-size: 11px; color: #8b949e; margin-top: 1px; }
-  .dot-CRITICAL { background: #f85149; box-shadow: 0 0 6px #f8514988; }
-  .dot-HIGH     { background: #d29922; box-shadow: 0 0 6px #d2992288; }
-  .dot-MEDIUM   { background: #58a6ff; }
-  .dot-LOW      { background: #3fb950; }
+  .tl-time {
+    font-size: 11px;
+    color: #6e7681;
+    font-family: 'JetBrains Mono', monospace;
+  }
+  .tl-label {
+    font-size: 13px;
+    color: #d1d5db;
+    margin-top: 3px;
+    font-weight: 500;
+  }
+  .tl-detail {
+    font-size: 12px;
+    color: #8b949e;
+    margin-top: 2px;
+  }
+  .dot-CRITICAL { background: #f85149; box-shadow: 0 0 10px rgba(248, 81, 73, 0.5); }
+  .dot-HIGH     { background: #d29922; box-shadow: 0 0 10px rgba(210, 153, 34, 0.5); }
+  .dot-MEDIUM   { background: #58a6ff; box-shadow: 0 0 8px rgba(88, 166, 255, 0.4); }
+  .dot-LOW      { background: #3fb950; box-shadow: 0 0 8px rgba(63, 185, 80, 0.4); }
 
-  /* Attack Chain */
+  /* ============ ATTACK CHAIN ============ */
   #chain-container {
-    flex: 1; position: relative; overflow-y: auto;
-    background: #0d1117; padding: 20px; display: none;
+    flex: 1;
+    position: relative;
+    overflow-y: auto;
+    background: #0a0e17;
+    padding: 20px 24px;
+    display: none;
   }
-  .chain-title { font-size: 14px; color: #f0f6fc; font-weight: 600; margin-bottom: 16px; }
+  .chain-title {
+    font-size: 15px;
+    color: #f0f6fc;
+    font-weight: 700;
+    margin-bottom: 18px;
+  }
   .chain-node {
-    background: #161b22; border: 1px solid #30363d; border-radius: 8px;
-    padding: 10px 14px; margin-bottom: 4px; position: relative;
+    background: rgba(22, 27, 34, 0.8);
+    border: 1px solid #30363d;
+    border-radius: 10px;
+    padding: 12px 16px;
+    margin-bottom: 4px;
+    position: relative;
+    cursor: pointer;
+    transition: all .15s;
   }
-  .chain-node .cn-id { color: #58a6ff; font-weight: 600; font-size: 12px; }
-  .chain-node .cn-type { color: #8b949e; font-size: 11px; }
-  .chain-node .cn-action { color: #c9d1d9; font-size: 11px; margin-top: 2px; }
-  .chain-arrow { text-align: center; color: #30363d; font-size: 18px; line-height: 1; }
-  .chain-empty { color: #6e7681; font-size: 12px; text-align: center; padding: 30px; }
+  .chain-node:hover {
+    border-color: rgba(56, 139, 253, 0.4);
+    background: rgba(22, 27, 34, 1);
+  }
+  .chain-node .cn-id {
+    color: #58a6ff;
+    font-weight: 700;
+    font-size: 13px;
+  }
+  .chain-node .cn-type {
+    color: #8b949e;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .chain-node .cn-action {
+    color: #d1d5db;
+    font-size: 12px;
+    margin-top: 3px;
+  }
+  .chain-arrow {
+    text-align: center;
+    color: #30363d;
+    font-size: 20px;
+    line-height: 1;
+  }
+  .chain-empty {
+    color: #6e7681;
+    font-size: 13px;
+    text-align: center;
+    padding: 30px;
+  }
 
+  /* ============ DETAIL PANEL ============ */
   .detail-panel {
-    height: 240px; border-top: 1px solid #30363d;
-    background: #161b22; padding: 14px 18px;
-    overflow-y: auto; font-size: 12px; line-height: 1.6;
+    min-height: 180px;
+    max-height: 280px;
+    border-top: 1px solid #30363d;
+    background: linear-gradient(180deg, #111827, #0f1420);
+    padding: 16px 22px;
+    overflow-y: auto;
+    font-size: 13px;
+    line-height: 1.7;
   }
-  .detail-panel h3 { color: #f0f6fc; margin-bottom: 8px; font-size: 13px; }
-  .kv { display: flex; gap: 12px; margin-bottom: 3px; }
-  .kv .k { color: #8b949e; min-width: 140px; }
-  .kv .v { color: #c9d1d9; word-break: break-all; }
-  
+  .detail-panel h3 {
+    color: #f0f6fc;
+    margin-bottom: 10px;
+    font-size: 14px;
+    font-weight: 700;
+  }
+  .kv {
+    display: flex;
+    gap: 14px;
+    margin-bottom: 4px;
+    align-items: flex-start;
+  }
+  .kv .k {
+    color: #8b949e;
+    min-width: 140px;
+    flex-shrink: 0;
+    font-weight: 500;
+    font-size: 12px;
+  }
+  .kv .v {
+    color: #d1d5db;
+    word-break: break-all;
+    font-size: 13px;
+  }
+
   .mitre-tag {
-    display: inline-block; background: #21262d; border: 1px solid #30363d;
-    color: #8b949e; padding: 2px 8px; border-radius: 4px; font-size: 10px;
-    margin-right: 4px; margin-bottom: 4px; cursor: default;
+    display: inline-block;
+    background: rgba(33, 38, 45, 0.8);
+    border: 1px solid #30363d;
+    color: #8b949e;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 500;
+    margin-right: 5px;
+    margin-bottom: 5px;
+    cursor: default;
+    transition: all .15s;
   }
-  .mitre-tag:hover { border-color: #58a6ff; color: #c9d1d9; }
-  
+  .mitre-tag:hover {
+    border-color: #58a6ff;
+    color: #d1d5db;
+    background: rgba(56, 139, 253, 0.1);
+  }
+
   .process-tree {
-    font-family: monospace; font-size: 11px; background: #0d1117;
-    padding: 8px; border-radius: 6px; border: 1px solid #30363d;
-    margin-top: 4px; line-height: 1.4; color: #c9d1d9;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 12px;
+    background: rgba(10, 14, 23, 0.8);
+    padding: 10px 12px;
+    border-radius: 8px;
+    border: 1px solid #21262d;
+    margin-top: 4px;
+    line-height: 1.5;
+    color: #d1d5db;
   }
-  .process-tree .hl { color: #3fb950; font-weight: bold; }
+  .process-tree .hl  { color: #3fb950; font-weight: bold; }
   .process-tree .net { color: #f78166; }
+
+  /* ============ RESPONSIVE ============ */
+  @media (max-width: 1200px) {
+    .stats { grid-template-columns: repeat(3, 1fr); }
+    .list-panel { width: 260px; min-width: 220px; }
+  }
+  @media (max-width: 800px) {
+    .stats { grid-template-columns: repeat(2, 1fr); }
+    .list-panel { width: 200px; min-width: 180px; }
+    .stat-card .value { font-size: 24px; }
+  }
 </style>
 </head>
 <body>
@@ -281,8 +633,8 @@
     <div id="graph-container">
       <svg id="graph">
         <defs>
-          <marker id="arrow" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
-            <path d="M0,0 L0,6 L8,3 z" fill="#30363d"/>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="7" refY="3.5" orient="auto">
+            <path d="M0,0 L0,7 L10,3.5 z" fill="#484f58"/>
           </marker>
         </defs>
         <g id="graph-root"></g>
@@ -291,13 +643,20 @@
         <div>🕸️</div>
         <div>Chọn Incident để xem đồ thị</div>
       </div>
+      <!-- Zoom Controls -->
+      <div class="zoom-controls">
+        <button class="zoom-btn" onclick="zoomGraph(1.3)" title="Phóng to">+</button>
+        <button class="zoom-btn" onclick="zoomGraph(0.7)" title="Thu nhỏ">−</button>
+        <button class="zoom-btn reset-btn" onclick="resetZoom()" title="Đặt lại">FIT</button>
+      </div>
+      <div class="zoom-hint">Cuộn chuột để zoom · Kéo chuột để di chuyển</div>
     </div>
 
     <div id="timeline-container"></div>
     <div id="chain-container"></div>
 
     <div class="detail-panel" id="detail-panel">
-      <div style="color:#6e7681">Chọn một Incident để xem chi tiết...</div>
+      <div style="color:#6e7681;font-size:13px">Chọn một Incident để xem chi tiết...</div>
     </div>
   </div>
 </div>
@@ -308,6 +667,11 @@ let selectedId   = null;
 let currentFilter = 'ALL';
 let currentTab    = 'graph';
 
+// ==================== ZOOM / PAN STATE ====================
+let graphTransform = { x: 0, y: 0, scale: 1 };
+let isPanning = false;
+let panStart = { x: 0, y: 0 };
+
 const TYPE_LABEL = {
   PROMPT_INJECTION: '💉 Prompt Injection',
   TOOL_ANOMALY:     '🔧 Tool Anomaly',
@@ -316,6 +680,71 @@ const TYPE_LABEL = {
   ORPHAN_SUSPICIOUS:'⚠️ Suspicious',
 };
 
+// ==================== ZOOM / PAN ====================
+function applyTransform() {
+  const root = document.getElementById('graph-root');
+  root.setAttribute('transform', `translate(${graphTransform.x},${graphTransform.y}) scale(${graphTransform.scale})`);
+}
+
+function zoomGraph(factor) {
+  const svg = document.getElementById('graph');
+  const W = svg.clientWidth || 700, H = svg.clientHeight || 400;
+  const cx = W / 2, cy = H / 2;
+
+  const newScale = Math.min(Math.max(graphTransform.scale * factor, 0.2), 5);
+  const ratio = newScale / graphTransform.scale;
+
+  graphTransform.x = cx - ratio * (cx - graphTransform.x);
+  graphTransform.y = cy - ratio * (cy - graphTransform.y);
+  graphTransform.scale = newScale;
+  applyTransform();
+}
+
+function resetZoom() {
+  graphTransform = { x: 0, y: 0, scale: 1 };
+  applyTransform();
+}
+
+// Mouse wheel zoom
+document.addEventListener('DOMContentLoaded', () => {
+  const container = document.getElementById('graph-container');
+
+  container.addEventListener('wheel', (e) => {
+    e.preventDefault();
+    const factor = e.deltaY < 0 ? 1.12 : 0.88;
+    const rect = container.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+
+    const newScale = Math.min(Math.max(graphTransform.scale * factor, 0.2), 5);
+    const ratio = newScale / graphTransform.scale;
+
+    graphTransform.x = mx - ratio * (mx - graphTransform.x);
+    graphTransform.y = my - ratio * (my - graphTransform.y);
+    graphTransform.scale = newScale;
+    applyTransform();
+  }, { passive: false });
+
+  // Pan with mouse drag
+  container.addEventListener('mousedown', (e) => {
+    if (e.button !== 0) return;
+    isPanning = true;
+    panStart = { x: e.clientX - graphTransform.x, y: e.clientY - graphTransform.y };
+  });
+
+  window.addEventListener('mousemove', (e) => {
+    if (!isPanning) return;
+    graphTransform.x = e.clientX - panStart.x;
+    graphTransform.y = e.clientY - panStart.y;
+    applyTransform();
+  });
+
+  window.addEventListener('mouseup', () => {
+    isPanning = false;
+  });
+});
+
+// ==================== TABS ====================
 function switchTab(tab, btn) {
   currentTab = tab;
   document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
@@ -326,6 +755,7 @@ function switchTab(tab, btn) {
   if (selectedId) select(selectedId);
 }
 
+// ==================== FILTER ====================
 function setFilter(f, btn) {
   currentFilter = f;
   document.querySelectorAll('.filter-bar button').forEach(b => b.classList.remove('active'));
@@ -339,6 +769,7 @@ function filtered() {
     : allIncidents.filter(i => i.type === currentFilter);
 }
 
+// ==================== LIST ====================
 function renderList() {
   const items = filtered();
   document.getElementById('list-count').textContent = items.length;
@@ -363,18 +794,20 @@ function renderList() {
   });
 }
 
+// ==================== SELECT ====================
 function select(id) {
   selectedId = id;
   const inc = allIncidents.find(i => i.id === id);
   if (!inc) return;
   renderList();
   document.getElementById('empty-msg').style.display = 'none';
-  if (currentTab === 'graph')    drawGraph(inc);
+  if (currentTab === 'graph')    { resetZoom(); drawGraph(inc); }
   if (currentTab === 'timeline') drawTimeline(inc);
   if (currentTab === 'chain')    drawChain(inc);
   showDetail(inc);
 }
 
+// ==================== DETAIL ====================
 function showDetail(inc) {
   let mitreHtml = '—';
   if (inc.mitre_tactics && inc.mitre_tactics.length > 0) {
@@ -427,17 +860,17 @@ function drawGraph(inc) {
   const cx = W / 2, cy = H / 2;
 
   const nodes = [
-    { id:'incident', type:'Incident',  label: inc.id,              r:36, x:cx,       y:cy       },
-    { id:'agent',    type:'AIAgent',   label: inc.agent || 'Agent', r:28, x:cx-220,   y:cy-80    },
-    { id:'endpoint', type:'Endpoint',  label: 'Endpoint',           r:24, x:cx+220,   y:cy-80    },
+    { id:'incident', type:'Incident',  label: inc.id,              r:40, x:cx,       y:cy       },
+    { id:'agent',    type:'AIAgent',   label: inc.agent || 'Agent', r:32, x:cx-240,   y:cy-90    },
+    { id:'endpoint', type:'Endpoint',  label: 'Endpoint',           r:28, x:cx+240,   y:cy-90    },
   ];
-  if (inc.process)        nodes.push({ id:'process', type:'Process',     label:(inc.process.split('\\').pop()||'').substring(0,15), r:24, x:cx+60,   y:cy+160 });
-  if (inc.prompt_score>0) nodes.push({ id:'prompt',  type:'PromptEvent', label:`Prompt\n${inc.prompt_risk}`, r:22, x:cx-200, y:cy+120 });
-  if (inc.tool_risk && inc.tool_risk !== '—') nodes.push({ id:'tool', type:'ToolAnomaly', label:`Tool\n${inc.tool_risk}`, r:22, x:cx-60, y:cy+160 });
-  if (inc.data_risk && inc.data_risk !== '—') nodes.push({ id:'data', type:'DataLeak', label:`Data\n${inc.data_risk}`, r:22, x:cx+180, y:cy+140 });
-  
-  if (inc.network_dest)   nodes.push({ id:'network', type:'NetworkConn', label:inc.network_dest.split(':')[0], r:22, x:cx+200, y:cy+240 });
-  if (inc.registry_key)   nodes.push({ id:'registry',type:'Endpoint',    label:'Registry', r:22, x:cx+120, y:cy+260 });
+  if (inc.process)        nodes.push({ id:'process', type:'Process',     label:(inc.process.split('\\').pop()||'').substring(0,15), r:28, x:cx+70,   y:cy+170 });
+  if (inc.prompt_score>0) nodes.push({ id:'prompt',  type:'PromptEvent', label:`Prompt\n${inc.prompt_risk}`, r:26, x:cx-220, y:cy+130 });
+  if (inc.tool_risk && inc.tool_risk !== '—') nodes.push({ id:'tool', type:'ToolAnomaly', label:`Tool\n${inc.tool_risk}`, r:26, x:cx-70, y:cy+170 });
+  if (inc.data_risk && inc.data_risk !== '—') nodes.push({ id:'data', type:'DataLeak', label:`Data\n${inc.data_risk}`, r:26, x:cx+200, y:cy+150 });
+
+  if (inc.network_dest)   nodes.push({ id:'network', type:'NetworkConn', label:inc.network_dest.split(':')[0], r:26, x:cx+220, y:cy+260 });
+  if (inc.registry_key)   nodes.push({ id:'registry',type:'Endpoint',    label:'Registry', r:26, x:cx+130, y:cy+280 });
 
   const edges = [
     { from:'agent', to:'incident', label:'TRIGGERED' },
@@ -461,7 +894,7 @@ function drawGraph(inc) {
     const len = Math.sqrt(dx*dx+dy*dy) || 1;
     const ux = dx/len, uy = dy/len;
     const x1 = s.x+ux*s.r, y1 = s.y+uy*s.r;
-    const x2 = d.x-ux*(d.r+8), y2 = d.y-uy*(d.r+8);
+    const x2 = d.x-ux*(d.r+10), y2 = d.y-uy*(d.r+10);
 
     const line = document.createElementNS('http://www.w3.org/2000/svg','line');
     line.setAttribute('x1',x1); line.setAttribute('y1',y1);
@@ -470,7 +903,7 @@ function drawGraph(inc) {
     root.appendChild(line);
 
     const lbl = document.createElementNS('http://www.w3.org/2000/svg','text');
-    lbl.setAttribute('x',(x1+x2)/2); lbl.setAttribute('y',(y1+y2)/2-4);
+    lbl.setAttribute('x',(x1+x2)/2); lbl.setAttribute('y',(y1+y2)/2-6);
     lbl.setAttribute('class','edge-label');
     lbl.textContent = e.label;
     root.appendChild(lbl);
@@ -484,21 +917,20 @@ function drawGraph(inc) {
 
     const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
     c.setAttribute('r', n.r);
-    c.style.filter = 'drop-shadow(0 2px 10px rgba(0,0,0,0.5))';
+    c.style.filter = 'drop-shadow(0 4px 16px rgba(0,0,0,0.5))';
     g.appendChild(c);
 
     n.label.split('\n').forEach((line, i, arr) => {
       const t = document.createElementNS('http://www.w3.org/2000/svg','text');
       t.setAttribute('class','node-label');
-      t.setAttribute('y', (i-(arr.length-1)/2)*13);
+      t.setAttribute('y', (i-(arr.length-1)/2)*14);
       t.textContent = line;
       g.appendChild(t);
     });
 
     const sub = document.createElementNS('http://www.w3.org/2000/svg','text');
-    sub.setAttribute('class','node-label');
-    sub.setAttribute('y', n.r+14);
-    sub.setAttribute('fill','#6e7681');
+    sub.setAttribute('class','node-type-label');
+    sub.setAttribute('y', n.r+16);
     sub.textContent = n.type;
     g.appendChild(sub);
 
@@ -510,7 +942,6 @@ function drawGraph(inc) {
 function drawTimeline(inc) {
   const container = document.getElementById('timeline-container');
 
-  // Tìm tất cả incidents cùng session
   const sessionId = inc.session_id;
   let chain;
   if (sessionId) {
@@ -541,7 +972,7 @@ function drawTimeline(inc) {
             ${item.id} — ${typeLabel}
           </div>
           <div class="tl-detail">🤖 ${item.agent} → ${item.action || 'N/A'}</div>
-          ${cmdPreview ? `<div class="tl-detail" style="color:#6e7681;font-family:monospace;font-size:10px">$ ${cmdPreview}</div>` : ''}
+          ${cmdPreview ? `<div class="tl-detail" style="color:#6e7681;font-family:'JetBrains Mono',monospace;font-size:10px">$ ${cmdPreview}</div>` : ''}
         </div>
       </div>
     `;
@@ -569,32 +1000,25 @@ function drawChain(inc) {
   let html = `<div class="chain-title">⛓️ Attack Chain — Session: ${sessionId}</div>`;
 
   let chainSteps = [];
-  
-  // Unpack từng incident thành các bước cụ thể
+
   chain.forEach(item => {
-    // 1. Prompt
     if (item.prompt_score > 0) {
       chainSteps.push({ id: item.id, type: 'Prompt Injection', action: `AI Agent received malicious prompt`, sev: item.prompt_risk || 'HIGH' });
     }
-    // 2. Tool
     if (item.tool_risk && item.tool_risk !== '—' || item.action === 'terminal' || item.action === 'execute') {
       chainSteps.push({ id: item.id, type: 'Tool Invocation', action: `Agent called tool: ${item.action}`, sev: item.tool_risk && item.tool_risk !== '—' ? item.tool_risk : 'MEDIUM' });
     }
-    // 3. Process
     if (item.process) {
       chainSteps.push({ id: item.id, type: 'Process Execution', action: `Executed: ${item.process.split('\\').pop()}`, sev: item.severity });
     }
-    // 4. Network
     if (item.network_dest) {
       chainSteps.push({ id: item.id, type: 'Network Activity', action: `Connected to ${item.network_dest}`, sev: 'HIGH' });
     }
-    // 5. Data Disclosure
     if (item.data_risk && item.data_risk !== '—') {
       chainSteps.push({ id: item.id, type: 'Data Disclosure', action: `Sensitive data leaked in AI response`, sev: item.data_risk });
     }
   });
 
-  // Nếu list rỗng thì hiển thị incident cơ bản
   if (chainSteps.length === 0) {
     chain.forEach(item => {
       chainSteps.push({ id: item.id, type: item.type, action: `Agent action: ${item.action}`, sev: item.severity });
