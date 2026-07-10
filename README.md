@@ -18,7 +18,7 @@ Layer(MCP,LSP,SDK) (Event ID 1,3,11,13,22)│
 └──────┬──────┘   └────────┬─────────┘
        │                   │
        └────────┬──────────┘
-                ▼(Làm sạch dữ liệu : Telemetry Duplicate, đẩy vào so với regext patterns: 2 trường hợp: Nguy Hiểm: chặn/ Chưa đủ nguy hiểm: gắn cờ cảnh báo , đẩ xuống dưới
+                ▼(Làm sạch dữ liệu : Telemetry Duplicate, đẩy vào so với regex patterns: 2 trường hợp: Nguy Hiểm: chặn/ Chưa đủ nguy hiểm: gắn cờ cảnh báo , đẩ xuống dưới
        ┌─────────────────┐
        │ Correlation     │   ← Liên kết Intent–Action (Δt ≤ 2s): 3 tiêu chí : time, sematic, context
        │   Engine        │
