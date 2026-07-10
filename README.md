@@ -14,18 +14,18 @@ Dự án kết hợp: giám sát Kernel-level (Sysmon), lưu vết Đồ thị T
       ▼                      ▼
 ┌─────────────┐   ┌──────────────────┐
 │ AI Telemetry│   │  Sysmon Collector│   ← Thu thập sự kiện
-│  Layer      │   │  (Event ID 1,3,11)│
+Layer(MCP,LSP,SDK) (Event ID 1,3,11,13,22)│
 └──────┬──────┘   └────────┬─────────┘
        │                   │
        └────────┬──────────┘
-                ▼
+                ▼(Làm sạch dữ liệu : Telemetry Duplicate, đẩy vào so với regext patterns: 2 trường hợp: Nguy Hiểm: chặn/ Chưa đủ nguy hiểm: gắn cờ cảnh báo , đẩ xuống dưới
        ┌─────────────────┐
-       │ Correlation     │   ← Liên kết Intent–Action (Δt ≤ 2s)
+       │ Correlation     │   ← Liên kết Intent–Action (Δt ≤ 2s): 3 tiêu chí : time, sematic, context
        │   Engine        │
        └────────┬────────┘
                 ▼
        ┌─────────────────┐
-       │  Detection      │   ← Probabilistic Risk Scoring
+       │  Detection      │   ← Risk Scoring
        │   Engine        │       Base Severity × Confidence × Context
        └────────┬────────┘
                 │
@@ -148,14 +148,6 @@ Mô hình hóa Incident thành đồ thị:
 
 ---
 
-## Bảo Vệ Trước Các Câu Hỏi Phản Biện (Defense Architecture)
-Dự án được thiết kế kèm theo các luồng lập luận kiến trúc chặt chẽ để trả lời phản biện:
-1. **Lỗ hổng Substring Match & Dấu Nháy:** Sử dụng parser (`shlex.split(posix=False)`) và Exact Match (`os.path.basename`) để giảm thiểu false-positive và chặn mạo danh bề mặt (`evil-code.exe`). Tuy nhiên, để ngăn chặn triệt để kỹ thuật Process Spoofing (rename payload độc hại thành `code.exe`), hệ thống cần kết hợp thêm **Path Validation** hoặc **Authenticode Signature Verification** (Microsoft/Cursor) ở cấp độ Enterprise.
-2. **Chống Local Spoofing & DoS:** Tất cả hàng đợi (Queue) đều cấu hình `maxsize` cùng với mã xác thực Token cho kênh IPC nhằm chặn các hành vi gửi fake event hoặc spam event làm tràn RAM.
-3. **Vùng mù của Self-Reported SDK:** Chủ động ghi nhận việc AI Agent có thể từ chối gọi SDK nếu bị hack. Hướng giải quyết cấp Enterprise là sử dụng **Mandatory Hooking** (LSP proxy / eBPF) thay thế.
-4. **Giới hạn của mô hình NLP:** Mô hình Zero-shot DeBERTa chỉ được định vị làm nhiệm vụ **Enrichment & Explainability** (chạy async giải thích sự cố), hoàn toàn **KHÔNG** tham gia vào việc ra quyết định Containment (tiêu diệt tiến trình). Việc ra quyết định thuộc về tập Deterministic Rules siêu tốc độ.
-
----
 
 ## Cấu trúc Thư mục
 
@@ -173,8 +165,8 @@ AI_Runtime_Security/
 │   ├── interceptor.py               # Security Analyzer cho tools/call
 │   └── protocol.py                  # JSON-RPC 2.0 Parser
 │
-├── lsp_sniffer/                     # Tầng 1 (Lớp 2): OS-level Passive Monitor
-│   └── sniffer.py                   # Giám sát Process & Named Pipes
+├── lsp_interceptor/                     # Tầng 1 (Lớp 2): OS-level Passive Monitor
+│   └── interceptor.py                   # Giám sát Process & Named Pipes
 │
 ├── ai_telemetry/                    # Tầng 1 (Lớp 3): Thu thập qua SDK/IPC
 │   ├── ipc_server.py                # Nhận sự kiện từ AI Agent tự nguyện báo cáo
@@ -194,7 +186,7 @@ AI_Runtime_Security/
 │   └── containment.py               # Kill Process qua psutil + Fail-Safe
 │
 ├── analyzer/                        # Tầng 5: Phân tích NLP
-│   ├── nlp_classifier.py            # Zero-shot DeBERTa v3 threat classification
+│   ├── nlp_classifier.py            # Zero-shot DeBERTa v3 small threat classification
 │   └── incident_summary.py          # Tổng hợp báo cáo Incident
 │
 ├── graph/                           # Tầng 7: Đồ thị điều tra (Neo4j/Web)
@@ -210,5 +202,5 @@ AI_Runtime_Security/
 │
 └── attack_simulation/               # Công cụ Demo & Testing (8 kịch bản)
     ├── demo_runner.py               # Chạy kịch bản tự động
-    └── DEMO_CHEATSHEET.md           # Hướng dẫn demo cho buổi báo cáo
+    └── DEMO_CHEATSHEET.md           # demo cho buổi báo cáo
 ```
